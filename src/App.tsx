@@ -1230,16 +1230,37 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
-                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                  )}
-                  placeholder="配方名称"
-                />
+                {(() => {
+                  const allTargets = getAllTargetMaterials();
+                  const rawMaterials = allTargets.filter(t => t.type === 'raw');
+                  const processedMaterials = allTargets.filter(t => t.type === 'processed');
+                  
+                  return (
+                    <select
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                        isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                      )}
+                    >
+                      <option value="">选择目标材料...</option>
+                      {rawMaterials.length > 0 && (
+                        <optgroup label="基础材料">
+                          {rawMaterials.map(m => (
+                            <option key={m.id} value={m.name}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {processedMaterials.length > 0 && (
+                        <optgroup label="加工产物">
+                          {processedMaterials.map(m => (
+                            <option key={m.id} value={m.name}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  );
+                })()}
               </div>
               <div>
                 <input
