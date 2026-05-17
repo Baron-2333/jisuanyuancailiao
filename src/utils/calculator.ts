@@ -75,42 +75,18 @@ export function calculateExpandedRequirements(
       continue;
     }
     
-    // 检查这个材料是否是某个配方的产出（通过名称匹配）
-    const subRecipe = recipes.find(r => r.name === material?.name);
-    
-    if (subRecipe) {
-      // 自动展开子配方
-      const subRequirements = calculateExpandedRequirements(
-        subRecipe.id,
-        totalQty,
-        recipes,
-        materials,
-        newSteps
-      );
-      
-      // 合并子需求
-      for (const subReq of subRequirements) {
-        if (requirements.has(subReq.materialId)) {
-          const existing = requirements.get(subReq.materialId)!;
-          existing.quantity += subReq.quantity;
-        } else {
-          requirements.set(subReq.materialId, { ...subReq });
-        }
-      }
+    // 这是最终原材料（只有显式使用 recipe: 前缀才会展开子配方）
+    if (requirements.has(ingredient.materialId)) {
+      const existing = requirements.get(ingredient.materialId)!;
+      existing.quantity += totalQty;
     } else {
-      // 这是最终原材料
-      if (requirements.has(ingredient.materialId)) {
-        const existing = requirements.get(ingredient.materialId)!;
-        existing.quantity += totalQty;
-      } else {
-        requirements.set(ingredient.materialId, {
-          materialId: ingredient.materialId,
-          materialName: ingredient.materialName,
-          quantity: totalQty,
-          unit: material?.unit || '个',
-          steps: newSteps,
-        });
-      }
+      requirements.set(ingredient.materialId, {
+        materialId: ingredient.materialId,
+        materialName: ingredient.materialName,
+        quantity: totalQty,
+        unit: material?.unit || '个',
+        steps: newSteps,
+      });
     }
   }
 
