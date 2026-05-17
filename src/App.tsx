@@ -155,7 +155,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.36</span></h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.37</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -312,7 +312,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.36</span></h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.37</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -672,102 +672,34 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                 {/* 预览表格 - 紧跟在选择行后面 */}
                 {recipe && (
                   <div className={cn("rounded overflow-hidden text-sm", isDark ? "bg-slate-800" : "bg-white")}>
-                    {expandSubRecipes ? (
-                      // 展开模式：显示配方层级关系链
-                      (() => {
-                        const expanded = calculateExpandedRequirements(target.recipeId, target.quantity, recipes, materials);
-                        // 显示表头
-                        return (
-                          <>
-                            <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
-                              <div className="grid grid-cols-3 gap-2 text-xs font-medium text-center">
-                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
-                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>单个需求</div>
-                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
-                              </div>
+                    {/* 显示直接配方材料 */}
+                    <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
+                      <div className="grid grid-cols-3 gap-2 text-xs font-medium text-center">
+                        <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
+                        <div className={isDark ? "text-slate-400" : "text-gray-600"}>单个需求</div>
+                        <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
+                      </div>
+                    </div>
+                    {recipe.ingredients.map((ing, i) => {
+                      const totalReq = ing.quantity * target.quantity;
+                      return (
+                        <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className={isDark ? "text-slate-200" : "text-gray-700"}>{ing.materialName}</div>
+                            <div className={isDark ? "text-slate-400" : "text-gray-500"}>
+                              {ing.quantity}
                             </div>
-                            {expanded.map((req, i) => {
-                              const trace = getTraceableInfo(req.materialId);
-                              const singleReq = req.quantity / target.quantity; // 单个需求
-                              return (
-                                <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                                  <div className="grid grid-cols-3 gap-2 text-center">
-                                    {/* 材料 */}
-                                    <div className={isDark ? "text-slate-200" : "text-gray-700"}>{req.materialName}</div>
-                                    {/* 单个需求 */}
-                                    <div className={isDark ? "text-slate-400" : "text-gray-500"}>
-                                      {singleReq}
-                                    </div>
-                                    {/* 总需求 */}
-                                    <div className="flex items-center justify-center">
-                                      {trace ? (
-                                        <div className="flex flex-col items-center">
-                                          <span className={cn("font-medium", isDark ? "text-cyan-400" : "text-cyan-600")}>
-                                            {trace.targetQuantity * req.quantity}
-                                          </span>
-                                          <span className={cn("text-xs", isDark ? "text-cyan-400/70" : "text-cyan-500")}>
-                                            (包含 {req.quantity})
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <div className={cn("font-medium",
-                                          req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                                        )}>
-                                          {req.quantity}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </>
-                        );
-                      })()
-                    ) : (
-                      // 不展开模式：显示直接配方材料
-                      <>
-                        <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
-                          <div className="grid grid-cols-3 gap-2 text-xs font-medium text-center">
-                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
-                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>单个需求</div>
-                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
+                            <div className={cn("font-medium",
+                              totalReq > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
+                            )}>
+                              {totalReq}
+                            </div>
                           </div>
                         </div>
-                        {recipe.ingredients.map((ing, i) => {
-                          const totalReq = ing.quantity * target.quantity;
-                          const trace = getTraceableInfo(ing.materialId);
-                          return (
-                            <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                              <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className={isDark ? "text-slate-200" : "text-gray-700"}>{ing.materialName}</div>
-                                <div className={isDark ? "text-slate-400" : "text-gray-500"}>
-                                  {ing.quantity}
-                                </div>
-                                <div className="flex items-center justify-center">
-                                  {trace ? (
-                                    <div className="flex flex-col items-center">
-                                      <span className={cn("font-medium", isDark ? "text-cyan-400" : "text-cyan-600")}>
-                                        {trace.targetQuantity * totalReq}
-                                      </span>
-                                      <span className={cn("text-xs", isDark ? "text-cyan-400/70" : "text-cyan-500")}>
-                                        (包含 {totalReq})
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className={cn("font-medium",
-                                      totalReq > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                                    )}>
-                                      {totalReq}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </>
-                    )}
+                      );
+                    })}
+                  </div>
+                )}
                   </div>
                 )}
               </div>
