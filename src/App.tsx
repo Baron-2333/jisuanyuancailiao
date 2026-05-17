@@ -155,7 +155,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.35</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -312,7 +312,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.35</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
