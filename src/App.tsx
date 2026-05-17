@@ -566,13 +566,23 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
+    // 检查原材料名称重复
+    const trimmedName = formData.name.trim();
+    const isDuplicate = materials.some(m => 
+      m.name.trim().toLowerCase() === trimmedName.toLowerCase() && m.id !== editingId
+    );
+    if (isDuplicate) {
+      alert(`原材料"${trimmedName}"已存在，请使用其他名称！`);
+      return;
+    }
+
     if (editingId) {
-      updateMaterial(editingId, { name: formData.name.trim(), unit: formData.unit });
+      updateMaterial(editingId, { name: trimmedName, unit: formData.unit });
       setEditingId(null);
     } else {
       const newMaterial: Material = {
         id: generateId(),
-        name: formData.name.trim(),
+        name: trimmedName,
         unit: formData.unit,
         createdAt: Date.now(),
       };
@@ -822,6 +832,42 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
     const validOutputs = formData.outputs.filter(o => o.name.trim());
     if (validInputs.length === 0 || !formData.processName.trim() || validOutputs.length === 0) return;
 
+    // 检查加工步骤名称重复
+    const trimmedProcessName = formData.processName.trim();
+    const isProcessNameDuplicate = processSteps.some(s => 
+      s.processName.trim().toLowerCase() === trimmedProcessName.toLowerCase() && s.id !== editingId
+    );
+    if (isProcessNameDuplicate) {
+      alert(`加工步骤"${trimmedProcessName}"已存在，请使用其他名称！`);
+      return;
+    }
+
+    // 检查产物名称是否与已有原材料或产物重复
+    const outputNames = validOutputs.map(o => o.name.trim().toLowerCase());
+    const duplicateOutputs: string[] = [];
+    
+    // 检查是否与原材料重复
+    materials.forEach(m => {
+      if (outputNames.includes(m.name.trim().toLowerCase())) {
+        duplicateOutputs.push(m.name);
+      }
+    });
+    
+    // 检查是否与其他步骤的产物重复
+    processSteps.forEach(s => {
+      if (editingId && s.id === editingId) return;
+      s.outputs.forEach(o => {
+        if (outputNames.includes(o.name.trim().toLowerCase())) {
+          duplicateOutputs.push(o.name);
+        }
+      });
+    });
+    
+    if (duplicateOutputs.length > 0) {
+      alert(`产物"${[...new Set(duplicateOutputs)].join('、')}"已存在（作为原材料或其他加工产物），请使用其他名称！`);
+      return;
+    }
+
     // 处理材料名称（去除 processed: 前缀）
     const processInputs = (name: string) => {
       return name.startsWith('processed:') ? name.replace('processed:', '') : name;
@@ -830,7 +876,7 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
     if (editingId) {
       updateProcessStep(editingId, {
         inputs: validInputs.map(i => ({ name: processInputs(i.name.trim()), quantity: i.quantity })),
-        processName: formData.processName.trim(),
+        processName: trimmedProcessName,
         outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
       });
       setEditingId(null);
@@ -838,7 +884,7 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
       const newStep: ProcessStep = {
         id: generateId(),
         inputs: validInputs.map(i => ({ name: processInputs(i.name.trim()), quantity: i.quantity })),
-        processName: formData.processName.trim(),
+        processName: trimmedProcessName,
         outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
         createdAt: Date.now(),
       };
@@ -1149,6 +1195,16 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
     e.preventDefault();
     if (!formData.name.trim() || formData.ingredients.length === 0) return;
 
+    // 检查配方名称重复
+    const trimmedName = formData.name.trim();
+    const isNameDuplicate = recipes.some(r => 
+      r.name.trim().toLowerCase() === trimmedName.toLowerCase() && r.id !== editingId
+    );
+    if (isNameDuplicate) {
+      alert(`配方"${trimmedName}"已存在，请使用其他名称！`);
+      return;
+    }
+
     const validIngredients = formData.ingredients
       .filter(ing => ing.materialId && ing.quantity > 0)
       .map(ing => {
@@ -1171,7 +1227,7 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
 
     if (editingId) {
       updateRecipe(editingId, {
-        name: formData.name.trim(),
+        name: trimmedName,
         outputQuantity: formData.outputQuantity,
         ingredients: validIngredients,
       });
@@ -1179,7 +1235,7 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
     } else {
       const newRecipe: Recipe = {
         id: generateId(),
-        name: formData.name.trim(),
+        name: trimmedName,
         outputQuantity: formData.outputQuantity,
         ingredients: validIngredients,
         createdAt: Date.now(),
