@@ -6,11 +6,19 @@ import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, Ta
 import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep } from './types';
 import { loginWithEmail, logout, getCurrentUser } from './utils/auth';
 
+// 配方的产物/材料类型
+type IngredientType = 'raw' | 'processed' | 'recipe';
+
+// 可选的配方产物（用于选择）
+interface RecipeProduct {
+  id: string;
+  name: string;
+  type: IngredientType;
+  recipeId?: string;
+}
+
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'processes' | 'recipes' | 'history';
-
-// 登录用户可访问的Tab
-const authorizedTabs: TabType[] = ['materials', 'processes', 'recipes', 'history'];
 
 // 单个目标材料配置
 interface TargetMaterial {
@@ -1431,9 +1439,9 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
   });
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 获取所有可用的目标材料（原材料 + 加工步骤产物）
+  // 获取所有可用的目标材料（原材料 + 加工步骤产物 + 其他配方）
   const getAllTargetMaterials = useCallback(() => {
-    const targets: { id: string; name: string; type: 'raw' | 'processed' }[] = [];
+    const targets: RecipeProduct[] = [];
     
     // 添加原材料
     materials.forEach(m => {
@@ -1454,8 +1462,24 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
       });
     }
     
+    // 添加其他配方作为可选材料（排除自己，防止循环引用）
+    const currentRecipes = recipes.filter(r => r.id !== editingId);
+    const addedRecipeNames = new Set<string>();
+    currentRecipes.forEach(recipe => {
+      if (!addedRecipeNames.has(recipe.name)) {
+        addedRecipeNames.add(recipe.name);
+        // 使用 recipe: 前缀 + 配方ID 来标识这是配方类型
+        targets.push({ 
+          id: `recipe:${recipe.id}`, 
+          name: recipe.name + ' [配方]', 
+          type: 'recipe',
+          recipeId: recipe.id 
+        });
+      }
+    });
+    
     return targets;
-  }, [materials, processSteps]);
+  }, [materials, processSteps, recipes, editingId]);
 
   const filteredRecipes = recipes.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1478,6 +1502,16 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
     const validIngredients = formData.ingredients
       .filter(ing => ing.materialId && ing.quantity > 0)
       .map(ing => {
+        // 检查是否是配方类型（recipe:前缀）
+        if (ing.materialId.startsWith('recipe:')) {
+          const recipeId = ing.materialId.replace('recipe:', '');
+          const recipe = recipes.find(r => r.id === recipeId);
+          return {
+            ...ing,
+            materialId: ing.materialId,
+            materialName: recipe?.name || ing.materialId,
+          };
+        }
         // 检查是否是加工产物
         if (ing.materialId.startsWith('processed:')) {
           const processedName = ing.materialId.replace('processed:', '');
@@ -1487,6 +1521,7 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
             materialName: processedName,
           };
         }
+        // 基础原材料
         return {
           ...ing,
           materialName: materials.find(m => m.id === ing.materialId)?.name || '',
@@ -1543,6 +1578,9 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
 
   // 获取目标材料名称（用于显示）
   const getIngredientDisplayName = (ingredient: { materialId: string; materialName: string }): string => {
+    if (ingredient.materialId.startsWith('recipe:')) {
+      return ingredient.materialName + ' [配方]';
+    }
     if (ingredient.materialId.startsWith('processed:')) {
       return ingredient.materialName + ' [加工产物]';
     }
@@ -1655,6 +1693,7 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
                 const allTargets = getAllTargetMaterials();
                 const rawMaterials = allTargets.filter(t => t.type === 'raw');
                 const processedMaterials = allTargets.filter(t => t.type === 'processed');
+                const recipeMaterials = allTargets.filter(t => t.type === 'recipe');
                 
                 return (
                   <div key={index} className="flex gap-2 items-center">
@@ -1676,6 +1715,13 @@ function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark
                       {processedMaterials.length > 0 && (
                         <optgroup label="加工产物">
                           {processedMaterials.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {recipeMaterials.length > 0 && (
+                        <optgroup label="配方（子配方）">
+                          {recipeMaterials.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>
                           ))}
                         </optgroup>

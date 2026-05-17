@@ -48,7 +48,34 @@ export function calculateExpandedRequirements(
     const totalQty = ingredient.quantity * multiplier;
     const material = materials.find(m => m.id === ingredient.materialId);
     
-    // 检查这个原材料是否也是一个配方的产出
+    // 检查是否是配方类型（recipe:前缀）
+    if (ingredient.materialId.startsWith('recipe:')) {
+      const subRecipeId = ingredient.materialId.replace('recipe:', '');
+      const subRecipe = recipes.find(r => r.id === subRecipeId);
+      if (subRecipe) {
+        // 递归计算子配方的原材料
+        const subRequirements = calculateExpandedRequirements(
+          subRecipe.id,
+          totalQty,
+          recipes,
+          materials,
+          newSteps
+        );
+        
+        // 合并子需求
+        for (const subReq of subRequirements) {
+          if (requirements.has(subReq.materialId)) {
+            const existing = requirements.get(subReq.materialId)!;
+            existing.quantity += subReq.quantity;
+          } else {
+            requirements.set(subReq.materialId, { ...subReq });
+          }
+        }
+      }
+      continue;
+    }
+    
+    // 检查这个原材料是否也是一个配方的产出（通过名称匹配）
     const subRecipe = recipes.find(r => r.name === material?.name);
     
     if (subRecipe) {
