@@ -61,6 +61,16 @@ export interface ProcessStep {
   createdAt: number;
 }
 
+// 溯源配置类型
+export interface TraceableMaterial {
+  id: string;
+  materialId: string;      // 材料ID
+  materialName: string;     // 材料名称
+  targetMaterialId: string; // 溯源目标材料ID
+  targetMaterialName: string; // 溯源目标材料名称
+  targetQuantity: number;   // 溯源目标材料数量（每1个当前材料需要多少目标材料）
+}
+
 // 应用状态
 export interface AppState {
   materials: Material[];

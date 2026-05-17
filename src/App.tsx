@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, LogIn, Loader2, Lock } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, LogIn, Loader2, Lock, Search } from 'lucide-react';
 import { cn } from './utils/utils';
-import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep } from './utils/storage';
+import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep, getTraceableMaterials, addTraceableMaterial, removeTraceableMaterial } from './utils/storage';
 import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement, setSaveHistory } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep, TraceableMaterial } from './types';
 import { loginWithEmail, logout, getCurrentUser } from './utils/auth';
 
 // 配方的产物/材料类型
@@ -418,6 +418,10 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
   const [expandSubRecipes, setExpandSubRecipes] = useState(true); // 是否展开子配方
   // 单个配方的预览结果
   const [previewResults, setPreviewResults] = useState<Map<string, MaterialRequirement[]>>(new Map());
+  // 溯源配置
+  const [traceableMaterials, setTraceableMaterials] = useState<TraceableMaterial[]>([]);
+  const [showTraceModal, setShowTraceModal] = useState(false);
+  const [traceForm, setTraceForm] = useState({ materialId: '', materialName: '', targetMaterialId: '', targetMaterialName: '', targetQuantity: 1 });
 
   // 添加一个目标材料
   const addTarget = () => {
@@ -479,6 +483,61 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
   useEffect(() => {
     updatePreview(targets);
   }, []);
+
+  // 加载溯源配置
+  useEffect(() => {
+    setTraceableMaterials(getTraceableMaterials());
+  }, []);
+
+  // 保存溯源配置
+  const handleSaveTraceable = () => {
+    if (!traceForm.materialId || !traceForm.targetMaterialId || traceForm.targetQuantity <= 0) return;
+    const newTraceable: TraceableMaterial = {
+      id: generateId(),
+      materialId: traceForm.materialId,
+      materialName: traceForm.materialName,
+      targetMaterialId: traceForm.targetMaterialId,
+      targetMaterialName: traceForm.targetMaterialName,
+      targetQuantity: traceForm.targetQuantity,
+    };
+    addTraceableMaterial(newTraceable);
+    setTraceableMaterials(getTraceableMaterials());
+    setTraceForm({ materialId: '', materialName: '', targetMaterialId: '', targetMaterialName: '', targetQuantity: 1 });
+  };
+
+  // 删除溯源配置
+  const handleDeleteTraceable = (id: string) => {
+    removeTraceableMaterial(id);
+    setTraceableMaterials(getTraceableMaterials());
+  };
+
+  // 检查是否有溯源配置
+  const getTraceableInfo = (materialId: string): TraceableMaterial | undefined => {
+    return traceableMaterials.find(t => t.materialId === materialId);
+  };
+
+  // 格式化带溯源的显示
+  const formatWithTrace = (materialName: string, quantity: number, materialId: string): { display: string; isTraced: boolean } => {
+    const trace = getTraceableInfo(materialId);
+    if (trace) {
+      const targetQty = trace.targetQuantity * quantity;
+      return {
+        display: `${quantity}(${trace.targetMaterialName} ${trace.targetQuantity})`,
+        isTraced: true,
+      };
+    }
+    return { display: quantity.toString(), isTraced: false };
+  };
+
+  // 格式化总需求带溯源
+  const formatSummaryWithTrace = (materialName: string, quantity: number, materialId: string): string => {
+    const trace = getTraceableInfo(materialId);
+    if (trace) {
+      const targetQty = trace.targetQuantity * quantity;
+      return `${targetQty} ${trace.targetMaterialName}(包含${quantity} ${materialName})`;
+    }
+    return `${quantity} ${materialName}`;
+  };
 
   // 计算所有目标材料的总需求
   const handleCalculate = () => {
@@ -696,10 +755,29 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                                     {/* 最终需求 */}
                                     <div className="flex items-center justify-between">
                                       <div className={isDark ? "text-slate-200" : "text-gray-700"}>{req.materialName}</div>
-                                      <div className={cn("font-medium", 
-                                        req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                                      )}>
-                                        {formatQuantity(req.quantity)}
+                                      <div className="flex items-center gap-2">
+                                        {(() => {
+                                          const trace = getTraceableInfo(req.materialId);
+                                          if (trace) {
+                                            return (
+                                              <>
+                                                <span className={cn("font-medium", isDark ? "text-blue-400" : "text-blue-600")}>
+                                                  {formatQuantity(1)}
+                                                </span>
+                                                <span className={cn("text-xs", isDark ? "text-cyan-400" : "text-cyan-600")}>
+                                                  ({trace.targetMaterialName} {trace.targetQuantity})
+                                                </span>
+                                              </>
+                                            );
+                                          }
+                                          return (
+                                            <div className={cn("font-medium", 
+                                              req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
+                                            )}>
+                                              {formatQuantity(req.quantity)}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     </div>
                                   </div>
@@ -770,6 +848,19 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
           >
             <RefreshCw size={16} />
             重置
+          </button>
+          {/* 溯源按钮 */}
+          <button
+            onClick={() => setShowTraceModal(true)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              traceableMaterials.length > 0
+                ? (isDark ? "bg-cyan-600 text-white hover:bg-cyan-700" : "bg-cyan-500 text-white hover:bg-cyan-600")
+                : (isDark ? "border border-cyan-500 text-cyan-400 hover:bg-slate-700" : "border border-cyan-500 text-cyan-600 hover:bg-cyan-50")
+            )}
+          >
+            <Search size={16} />
+            溯源 {traceableMaterials.length > 0 && `(${traceableMaterials.length})`}
           </button>
         </div>
       </div>
@@ -865,7 +956,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       <td className={cn("py-2 px-3 text-right font-semibold", 
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
-                        {formatQuantity(req.totalQuantity)}
+                        {formatSummaryWithTrace(req.materialName, req.totalQuantity, req.materialId)}
                       </td>
                       <td className={cn("py-2 px-3", isDark ? "text-slate-400" : "text-gray-500")}>{req.unit}</td>
                       {expandSubRecipes && (
@@ -900,6 +991,131 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
         <div className={cn("rounded-lg p-10 text-center", cardClass)}>
           <Calculator className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={40} />
           <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>没有找到任何原材料需求</p>
+        </div>
+      )}
+
+      {/* 溯源配置弹窗 */}
+      {showTraceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTraceModal(false)}>
+          <div 
+            className={cn("w-full max-w-lg rounded-2xl p-6 backdrop-blur-xl max-h-[80vh] overflow-y-auto", isDark ? "bg-slate-800/95 border border-slate-700/50" : "bg-white/95 border border-gray-200/50 shadow-xl")} 
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={cn("text-xl font-bold", isDark ? "text-white" : "text-gray-800")}>溯源配置</h2>
+              <button 
+                onClick={() => setShowTraceModal(false)}
+                className={cn("p-2 rounded-lg", isDark ? "text-slate-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100")}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className={cn("text-sm mb-4", isDark ? "text-slate-400" : "text-gray-500")}>
+              配置溯源材料后，配方计算结果将展开显示原材料的来源。例如：铁块 → 铁锭 9个
+            </p>
+
+            {/* 添加溯源表单 */}
+            <div className={cn("p-4 rounded-xl mb-4", isDark ? "bg-slate-700/50" : "bg-gray-50")}>
+              <h3 className={cn("text-sm font-medium mb-3", isDark ? "text-slate-300" : "text-gray-700")}>添加溯源规则</h3>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>溯源材料</label>
+                  <select
+                    value={traceForm.materialId}
+                    onChange={e => {
+                      const mat = materials.find(m => m.id === e.target.value);
+                      setTraceForm({ ...traceForm, materialId: e.target.value, materialName: mat?.name || '' });
+                    }}
+                    className={cn("w-full px-3 py-2 rounded-lg text-sm", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
+                  >
+                    <option value="">选择材料...</option>
+                    {materials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>溯源目标</label>
+                  <select
+                    value={traceForm.targetMaterialId}
+                    onChange={e => {
+                      const mat = materials.find(m => m.id === e.target.value);
+                      setTraceForm({ ...traceForm, targetMaterialId: e.target.value, targetMaterialName: mat?.name || '' });
+                    }}
+                    className={cn("w-full px-3 py-2 rounded-lg text-sm", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
+                  >
+                    <option value="">选择目标...</option>
+                    {materials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>每1个材料需要目标数量</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={traceForm.targetQuantity}
+                    onChange={e => setTraceForm({ ...traceForm, targetQuantity: parseInt(e.target.value) || 1 })}
+                    className={cn("w-full px-3 py-2 rounded-lg text-sm", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
+                  />
+                </div>
+                <button
+                  onClick={handleSaveTraceable}
+                  disabled={!traceForm.materialId || !traceForm.targetMaterialId || traceForm.targetQuantity <= 0}
+                  className={cn(
+                    "mt-5 px-4 py-2 rounded-lg text-sm font-medium",
+                    traceForm.materialId && traceForm.targetMaterialId && traceForm.targetQuantity > 0
+                      ? (isDark ? "bg-cyan-600 text-white hover:bg-cyan-700" : "bg-cyan-500 text-white hover:bg-cyan-600")
+                      : (isDark ? "bg-slate-600 text-slate-400" : "bg-gray-300 text-gray-500")
+                  )}
+                >
+                  添加规则
+                </button>
+              </div>
+            </div>
+
+            {/* 已有溯源配置列表 */}
+            <div>
+              <h3 className={cn("text-sm font-medium mb-3", isDark ? "text-slate-300" : "text-gray-700")}>
+                已配置的溯源规则 ({traceableMaterials.length})
+              </h3>
+              {traceableMaterials.length === 0 ? (
+                <div className={cn("text-center py-8 rounded-xl", isDark ? "bg-slate-700/30" : "bg-gray-50")}>
+                  <Search className={cn("mx-auto mb-2 opacity-50", isDark ? "text-slate-500" : "text-gray-400")} size={32} />
+                  <p className={cn("text-sm", isDark ? "text-slate-500" : "text-gray-400")}>暂无配置</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {traceableMaterials.map(trace => (
+                    <div 
+                      key={trace.id} 
+                      className={cn("flex items-center justify-between p-3 rounded-lg", isDark ? "bg-slate-700/50" : "bg-gray-50")}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn("px-2 py-1 rounded text-sm font-medium", isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600")}>
+                          {trace.materialName}
+                        </span>
+                        <span className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-400")}>→</span>
+                        <span className={cn("px-2 py-1 rounded text-sm font-medium", isDark ? "bg-cyan-500/20 text-cyan-400" : "bg-cyan-100 text-cyan-600")}>
+                          {trace.targetMaterialName} × {trace.targetQuantity}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTraceable(trace.id)}
+                        className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-600" : "text-red-500 hover:bg-red-100")}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { Material, Recipe, CalculationHistory, ProcessStep } from '../types';
+import { Material, Recipe, CalculationHistory, ProcessStep, TraceableMaterial } from '../types';
 import tcb from 'tcb-js-sdk';
 
 // 环境配置
@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   PROCESS_STEPS: 'material_calculator_process_steps',
   CALCULATION: 'material_calculator_saved_calc',
   SYNC_KEY: 'material_calculator_last_sync',
+  TRACEABLE_MATERIALS: 'material_calculator_traceable',
 };
 
 // 通用存储函数
@@ -326,4 +327,31 @@ export async function pushToCloud(): Promise<void> {
 // 检查是否已启用云同步
 export function isCloudSyncEnabled(): boolean {
   return syncEnabled;
+}
+
+// ============ 溯源配置管理 ============
+
+export function getTraceableMaterials(): TraceableMaterial[] {
+  return getStorageData<TraceableMaterial[]>(STORAGE_KEYS.TRACEABLE_MATERIALS, []);
+}
+
+export function saveTraceableMaterials(traceables: TraceableMaterial[]): void {
+  setStorageData(STORAGE_KEYS.TRACEABLE_MATERIALS, traceables);
+}
+
+export function addTraceableMaterial(traceable: TraceableMaterial): void {
+  const traceables = getTraceableMaterials();
+  // 检查是否已存在
+  const existsIndex = traceables.findIndex(t => t.materialId === traceable.materialId);
+  if (existsIndex >= 0) {
+    traceables[existsIndex] = traceable;
+  } else {
+    traceables.push(traceable);
+  }
+  saveTraceableMaterials(traceables);
+}
+
+export function removeTraceableMaterial(id: string): void {
+  const traceables = getTraceableMaterials().filter(t => t.id !== id);
+  saveTraceableMaterials(traceables);
 }
