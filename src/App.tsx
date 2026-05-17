@@ -744,6 +744,30 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
   });
   const [searchTerm, setSearchTerm] = useState('');
 
+  // 获取所有可用的原材料（基础材料 + 加工产物）
+  const getAllAvailableInputs = useCallback(() => {
+    const available: { id: string; name: string; type: 'raw' | 'processed' }[] = [];
+    
+    // 添加基础材料
+    materials.forEach(m => {
+      available.push({ id: m.id, name: m.name, type: 'raw' });
+    });
+    
+    // 添加加工产物（排除当前编辑的步骤，避免循环引用）
+    const processedNames = new Set<string>();
+    processSteps.forEach(step => {
+      if (editingId && step.id === editingId) return; // 编辑时排除自身
+      step.outputs.forEach(output => {
+        if (output.name.trim() && !processedNames.has(output.name.trim())) {
+          processedNames.add(output.name.trim());
+          available.push({ id: `processed:${output.name.trim()}`, name: output.name.trim(), type: 'processed' });
+        }
+      });
+    });
+    
+    return available;
+  }, [materials, processSteps, editingId]);
+
   const filteredSteps = processSteps.filter(s => 
     s.inputs.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     s.outputs.some(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -798,9 +822,14 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
     const validOutputs = formData.outputs.filter(o => o.name.trim());
     if (validInputs.length === 0 || !formData.processName.trim() || validOutputs.length === 0) return;
 
+    // 处理材料名称（去除 processed: 前缀）
+    const processInputs = (name: string) => {
+      return name.startsWith('processed:') ? name.replace('processed:', '') : name;
+    };
+
     if (editingId) {
       updateProcessStep(editingId, {
-        inputs: validInputs.map(i => ({ name: i.name.trim(), quantity: i.quantity })),
+        inputs: validInputs.map(i => ({ name: processInputs(i.name.trim()), quantity: i.quantity })),
         processName: formData.processName.trim(),
         outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
       });
@@ -808,7 +837,7 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
     } else {
       const newStep: ProcessStep = {
         id: generateId(),
-        inputs: validInputs.map(i => ({ name: i.name.trim(), quantity: i.quantity })),
+        inputs: validInputs.map(i => ({ name: processInputs(i.name.trim()), quantity: i.quantity })),
         processName: formData.processName.trim(),
         outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
         createdAt: Date.now(),
@@ -831,8 +860,26 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
   };
 
   const handleEdit = (step: ProcessStep) => {
+    // 将已有的材料名称转换为带前缀的选择值
+    const convertToSelectValue = (name: string): string => {
+      // 检查是否存在于基础材料中
+      const existsAsRaw = materials.some(m => m.name === name);
+      if (!existsAsRaw) {
+        // 检查是否存在于其他步骤的产物中
+        const existsAsProcessed = processSteps.some(s => 
+          s.id !== step.id && s.outputs.some(o => o.name === name)
+        );
+        if (existsAsProcessed) {
+          return `processed:${name}`;
+        }
+      }
+      return name;
+    };
+
     setFormData({
-      inputs: step.inputs.length > 0 ? step.inputs : [{ name: '', quantity: 1 }],
+      inputs: step.inputs.length > 0 
+        ? step.inputs.map(i => ({ name: convertToSelectValue(i.name), quantity: i.quantity }))
+        : [{ name: '', quantity: 1 }],
       processName: step.processName,
       outputs: step.outputs.length > 0 ? step.outputs : [{ name: '', quantity: 1 }],
     });
@@ -878,29 +925,49 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
               )}
             </div>
             <div className="space-y-2">
-              {formData.inputs.map((input, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={input.name}
-                    onChange={e => updateInput(index, 'name', e.target.value)}
-                    className={cn("flex-1 px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                    placeholder={`原材料${index + 1}名称`}
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={input.quantity}
-                    onChange={e => updateInput(index, 'quantity', Number(e.target.value))}
-                    className={cn("w-20 px-2 py-2 rounded border text-sm text-center", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                  />
-                  {formData.inputs.length > 1 && (
-                    <button type="button" onClick={() => removeInput(index)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {formData.inputs.map((input, index) => {
+                const allInputs = getAllAvailableInputs();
+                const rawInputs = allInputs.filter(t => t.type === 'raw');
+                const processedInputs = allInputs.filter(t => t.type === 'processed');
+                
+                return (
+                  <div key={index} className="flex gap-2 items-center">
+                    <select
+                      value={input.name}
+                      onChange={e => updateInput(index, 'name', e.target.value)}
+                      className={cn("flex-1 px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    >
+                      <option value="">选择原材料...</option>
+                      {rawInputs.length > 0 && (
+                        <optgroup label="基础材料">
+                          {rawInputs.map(m => (
+                            <option key={m.id} value={m.name}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {processedInputs.length > 0 && (
+                        <optgroup label="加工产物">
+                          {processedInputs.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      value={input.quantity}
+                      onChange={e => updateInput(index, 'quantity', Number(e.target.value))}
+                      className={cn("w-20 px-2 py-2 rounded border text-sm text-center", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    />
+                    {formData.inputs.length > 1 && (
+                      <button type="button" onClick={() => removeInput(index)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
