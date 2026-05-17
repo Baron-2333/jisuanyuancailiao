@@ -1,5 +1,5 @@
 import { Recipe, Material, MaterialRequirement, RecipeConfig, CalculationHistory } from '../types';
-import { getRecipes, getMaterials, addHistory, generateId } from './storage';
+import { getRecipes, getMaterials, getTraceableMaterials, addHistory, generateId } from './storage';
 
 // 目标材料配置
 export interface TargetConfig {
@@ -75,42 +75,18 @@ export function calculateExpandedRequirements(
       continue;
     }
     
-    // 检查这个原材料是否也是一个配方的产出（通过名称匹配）
-    const subRecipe = recipes.find(r => r.name === material?.name);
-    
-    if (subRecipe) {
-      // 递归计算子配方的原材料
-      const subRequirements = calculateExpandedRequirements(
-        subRecipe.id,
-        totalQty,
-        recipes,
-        materials,
-        newSteps
-      );
-      
-      // 合并子需求
-      for (const subReq of subRequirements) {
-        if (requirements.has(subReq.materialId)) {
-          const existing = requirements.get(subReq.materialId)!;
-          existing.quantity += subReq.quantity;
-        } else {
-          requirements.set(subReq.materialId, { ...subReq });
-        }
-      }
+    // 这是最终原材料（不再通过名称自动匹配子配方，只保留显式的 recipe: 前缀引用）
+    if (requirements.has(ingredient.materialId)) {
+      const existing = requirements.get(ingredient.materialId)!;
+      existing.quantity += totalQty;
     } else {
-      // 这是最终原材料
-      if (requirements.has(ingredient.materialId)) {
-        const existing = requirements.get(ingredient.materialId)!;
-        existing.quantity += totalQty;
-      } else {
-        requirements.set(ingredient.materialId, {
-          materialId: ingredient.materialId,
-          materialName: ingredient.materialName,
-          quantity: totalQty,
-          unit: material?.unit || '个',
-          steps: newSteps,
-        });
-      }
+      requirements.set(ingredient.materialId, {
+        materialId: ingredient.materialId,
+        materialName: ingredient.materialName,
+        quantity: totalQty,
+        unit: material?.unit || '个',
+        steps: newSteps,
+      });
     }
   }
 
@@ -157,6 +133,61 @@ export function calculateRequirements(
 }
 
 /**
+ * 应用溯源配置：将可溯源材料转换为目标材料并合并数量
+ * 例如：铁块 → 铁锭，5个铁块转换为45个铁锭，并记录溯源来源
+ */
+function applyTraceableMerge(
+  requirements: Map<string, ExpandedRequirement>,
+  traceableMaterials: TraceableMaterial[],
+  materials: Material[]
+): { merged: Map<string, ExpandedRequirement>; traceNotes: Map<string, string> } {
+  const merged = new Map<string, ExpandedRequirement>();
+  const traceSourceMap = new Map<string, Map<string, number>>(); // targetId -> sourceName -> sourceQty
+
+  for (const req of requirements.values()) {
+    const trace = traceableMaterials.find(t => t.materialId === req.materialId);
+    if (trace) {
+      const targetId = trace.targetMaterialId;
+      const convertedQty = req.quantity * trace.targetQuantity;
+
+      const existing = merged.get(targetId);
+      if (existing) {
+        existing.quantity += convertedQty;
+      } else {
+        merged.set(targetId, {
+          materialId: targetId,
+          materialName: trace.targetMaterialName,
+          quantity: convertedQty,
+          unit: materials.find(m => m.id === targetId)?.unit || req.unit,
+          steps: req.steps,
+        });
+      }
+
+      const sourceMap = traceSourceMap.get(targetId) || new Map<string, number>();
+      sourceMap.set(trace.materialName, (sourceMap.get(trace.materialName) || 0) + req.quantity);
+      traceSourceMap.set(targetId, sourceMap);
+    } else {
+      const existing = merged.get(req.materialId);
+      if (existing) {
+        existing.quantity += req.quantity;
+      } else {
+        merged.set(req.materialId, { ...req });
+      }
+    }
+  }
+
+  const traceNotes = new Map<string, string>();
+  for (const [targetId, sourceMap] of traceSourceMap) {
+    const notes = Array.from(sourceMap.entries())
+      .map(([name, qty]) => `${qty}个${name}`)
+      .join('、');
+    traceNotes.set(targetId, `包含${notes}`);
+  }
+
+  return { merged, traceNotes };
+}
+
+/**
  * 检查配方中是否有子配方（用于标识二次加工）
  */
 export function hasSubRecipes(recipeId: string, recipes: Recipe[], materials: Material[]): boolean {
@@ -178,11 +209,12 @@ export function hasSubRecipes(recipeId: string, recipes: Recipe[], materials: Ma
 export function performCalculation(
   targets: TargetConfig[],
   expandSubRecipes: boolean = true
-): { results: MaterialRequirement[]; expandedResults?: ExpandedRequirement[] } | null {
+): { results: MaterialRequirement[]; expandedResults?: ExpandedRequirement[]; traceNotes?: Map<string, string> } | null {
   if (targets.length === 0) return null;
 
   const recipes = getRecipes();
   const materials = getMaterials();
+  const traceableMaterials = getTraceableMaterials();
   const combinedRequirements: Map<string, MaterialRequirement> = new Map();
   const combinedExpanded: Map<string, ExpandedRequirement> = new Map();
   const targetSummaries: string[] = [];
@@ -226,8 +258,17 @@ export function performCalculation(
 
   if (targetSummaries.length === 0) return null;
 
+  let finalExpanded = combinedExpanded;
+  let traceNotes: Map<string, string> | undefined;
+
+  if (expandSubRecipes && combinedExpanded.size > 0) {
+    const merged = applyTraceableMerge(combinedExpanded, traceableMaterials, materials);
+    finalExpanded = merged.merged;
+    traceNotes = merged.traceNotes;
+  }
+
   const results = expandSubRecipes
-    ? Array.from(combinedExpanded.values()).map(r => ({
+    ? Array.from(finalExpanded.values()).map(r => ({
         materialId: r.materialId,
         materialName: r.materialName,
         totalQuantity: r.quantity,
@@ -238,7 +279,7 @@ export function performCalculation(
       );
 
   const expandedResults = expandSubRecipes 
-    ? Array.from(combinedExpanded.values()).sort((a, b) => a.materialName.localeCompare(b.materialName))
+    ? Array.from(finalExpanded.values()).sort((a, b) => a.materialName.localeCompare(b.materialName))
     : undefined;
 
   // 生成时间字符串
@@ -261,7 +302,7 @@ export function performCalculation(
     addHistory(historyRecord);
   }
 
-  return { results, expandedResults };
+  return { results, expandedResults, traceNotes };
 }
 
 /**

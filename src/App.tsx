@@ -155,7 +155,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.37</span></h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.38</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -312,7 +312,7 @@ export default function App() {
           <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.37</span></h1>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器 <span className="text-xs text-slate-500 ml-1">v0.0.38</span></h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -430,6 +430,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
   const [expandedResults, setExpandedResults] = useState<ExpandedRequirement[]>([]);
   const [showResults, setShowResults] = useState(savedCalc?.results?.length > 0);
   const [expandSubRecipes, setExpandSubRecipes] = useState(true); // 是否展开子配方
+  const [traceNotes, setTraceNotes] = useState<Map<string, string>>(new Map()); // 溯源备注
   // 单个配方的预览结果
   const [previewResults, setPreviewResults] = useState<Map<string, MaterialRequirement[]>>(new Map());
   // 溯源配置
@@ -496,21 +497,6 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
     updatePreview(targets);
   }, []);
 
-  // 检查是否有溯源配置
-  const getTraceableInfo = (materialId: string): TraceableMaterial | undefined => {
-    return traceableMaterials.find(t => t.materialId === materialId);
-  };
-
-  // 格式化总需求带溯源
-  const formatSummaryWithTrace = (quantity: number, materialId: string): string => {
-    const trace = getTraceableInfo(materialId);
-    if (trace) {
-      const targetQty = trace.targetQuantity * quantity;
-      return `${targetQty} (包含 ${quantity})`;
-    }
-    return `${quantity}`;
-  };
-
   // 计算所有目标材料的总需求
   const handleCalculate = () => {
     const validTargets = targets.filter(t => t.recipeId && t.quantity > 0);
@@ -528,6 +514,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
     if (result) {
       setResults(result.results);
       setExpandedResults(result.expandedResults || []);
+      setTraceNotes(result.traceNotes || new Map());
       setShowResults(true);
       // 访客模式不保存计算状态
       if (!isGuestMode) {
@@ -761,6 +748,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       if (result) {
                         setResults(result.results);
                         setExpandedResults(result.expandedResults || []);
+                        setTraceNotes(result.traceNotes || new Map());
                       }
                     }
                   }}
@@ -805,7 +793,12 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       <td className={cn("py-2 px-3 text-right font-semibold", 
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
-                        {formatSummaryWithTrace(req.totalQuantity, req.materialId)}
+                        {req.totalQuantity}
+                        {traceNotes.get(req.materialId) && (
+                          <span className={cn("text-xs ml-1", isDark ? "text-slate-400" : "text-gray-500")}>
+                            ({traceNotes.get(req.materialId)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
