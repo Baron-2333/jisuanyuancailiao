@@ -144,8 +144,35 @@ export function deleteHistoryItem(id: string): void {
 
 // ============ 加工步骤管理 ============
 
+// 迁移旧格式数据到新格式
+function migrateProcessStep(oldStep: any): ProcessStep {
+  // 如果已经是新格式，直接返回
+  if (Array.isArray(oldStep.inputs)) {
+    return oldStep as ProcessStep;
+  }
+  // 旧格式迁移
+  return {
+    id: oldStep.id || generateId(),
+    inputs: [{ name: oldStep.inputName || '', quantity: oldStep.inputQuantity || 1 }],
+    processName: oldStep.processName || '',
+    outputs: [{ name: oldStep.outputName || '', quantity: oldStep.outputQuantity || 1 }],
+    createdAt: oldStep.createdAt || Date.now(),
+  };
+}
+
 export function getProcessSteps(): ProcessStep[] {
-  return getStorageData<ProcessStep[]>(STORAGE_KEYS.PROCESS_STEPS, []);
+  const steps = getStorageData<ProcessStep[]>(STORAGE_KEYS.PROCESS_STEPS, []);
+  // 迁移旧格式数据
+  const migrated = steps.map(migrateProcessStep);
+  // 如果有迁移发生，更新存储
+  const hasMigration = migrated.some((step, i) => {
+    const old = steps[i];
+    return !Array.isArray(old?.inputs);
+  });
+  if (hasMigration) {
+    saveProcessSteps(migrated);
+  }
+  return migrated;
 }
 
 export function saveProcessSteps(steps: ProcessStep[]): void {
