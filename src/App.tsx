@@ -680,7 +680,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                         return (
                           <>
                             <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
-                              <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+                              <div className="grid grid-cols-3 gap-2 text-xs font-medium text-center">
                                 <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
                                 <div className={isDark ? "text-slate-400" : "text-gray-600"}>单个需求</div>
                                 <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
@@ -691,22 +691,22 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                               const singleReq = req.quantity / target.quantity; // 单个需求
                               return (
                                 <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                                  <div className="grid grid-cols-3 gap-2">
+                                  <div className="grid grid-cols-3 gap-2 text-center">
                                     {/* 材料 */}
                                     <div className={isDark ? "text-slate-200" : "text-gray-700"}>{req.materialName}</div>
                                     {/* 单个需求 */}
-                                    <div className={cn("text-center", isDark ? "text-slate-400" : "text-gray-500")}>
-                                      {singleReq} {req.unit}
+                                    <div className={isDark ? "text-slate-400" : "text-gray-500"}>
+                                      {singleReq}
                                     </div>
                                     {/* 总需求 */}
-                                    <div className="flex items-center justify-end">
+                                    <div className="flex items-center justify-center">
                                       {trace ? (
-                                        <div className="flex flex-col items-end">
+                                        <div className="flex flex-col items-center">
                                           <span className={cn("font-medium", isDark ? "text-cyan-400" : "text-cyan-600")}>
-                                            {trace.targetQuantity * req.quantity} 个
+                                            {trace.targetQuantity * req.quantity}
                                           </span>
                                           <span className={cn("text-xs", isDark ? "text-cyan-400/70" : "text-cyan-500")}>
-                                            (包含 {req.quantity} 个 {req.materialName})
+                                            (包含 {req.quantity})
                                           </span>
                                         </div>
                                       ) : (
@@ -728,7 +728,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       // 不展开模式：显示直接配方材料
                       <>
                         <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
-                          <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+                          <div className="grid grid-cols-3 gap-2 text-xs font-medium text-center">
                             <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
                             <div className={isDark ? "text-slate-400" : "text-gray-600"}>单个需求</div>
                             <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
@@ -739,19 +739,19 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                           const trace = getTraceableInfo(ing.materialId);
                           return (
                             <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                              <div className="grid grid-cols-3 gap-2">
+                              <div className="grid grid-cols-3 gap-2 text-center">
                                 <div className={isDark ? "text-slate-200" : "text-gray-700"}>{ing.materialName}</div>
-                                <div className={cn("text-center", isDark ? "text-slate-400" : "text-gray-500")}>
-                                  {ing.quantity} {ing.unit || '个'}
+                                <div className={isDark ? "text-slate-400" : "text-gray-500"}>
+                                  {ing.quantity}
                                 </div>
-                                <div className="flex items-center justify-end">
+                                <div className="flex items-center justify-center">
                                   {trace ? (
-                                    <div className="flex flex-col items-end">
+                                    <div className="flex flex-col items-center">
                                       <span className={cn("font-medium", isDark ? "text-cyan-400" : "text-cyan-600")}>
-                                        {trace.targetQuantity * totalReq} 个
+                                        {trace.targetQuantity * totalReq}
                                       </span>
                                       <span className={cn("text-xs", isDark ? "text-cyan-400/70" : "text-cyan-500")}>
-                                        (包含 {totalReq} 个 {ing.materialName})
+                                        (包含 {totalReq})
                                       </span>
                                     </div>
                                   ) : (
