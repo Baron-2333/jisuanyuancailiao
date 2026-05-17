@@ -700,8 +700,6 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                     })}
                   </div>
                 )}
-                  </div>
-                )}
               </div>
             );
           })}
