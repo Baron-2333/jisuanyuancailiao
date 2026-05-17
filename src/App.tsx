@@ -642,43 +642,102 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                 {recipe && (
                   <div className={cn("rounded overflow-hidden text-sm", isDark ? "bg-slate-800" : "bg-white")}>
                     {expandSubRecipes ? (
-                      // 展开模式：显示最终原材料和加工步骤
+                      // 展开模式：显示配方层级关系链
                       (() => {
                         const expanded = calculateExpandedRequirements(target.recipeId, target.quantity, recipes, materials);
-                        return expanded.map((req, i) => (
-                          <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                            <div className="flex items-center justify-between">
-                              <div className={isDark ? "text-slate-200" : "text-gray-700"}>{req.materialName}</div>
-                              <div className={cn("font-medium", 
-                                req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                              )}>
-                                {formatQuantity(req.quantity)}
+                        // 显示表头
+                        return (
+                          <>
+                            <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
+                              <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>配方链</div>
+                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>配方关系</div>
+                                <div className={isDark ? "text-slate-400" : "text-gray-600"}>最终需求</div>
                               </div>
                             </div>
-                            <div className={cn("text-xs mt-1", isDark ? "text-slate-500" : "text-gray-400")}>
-                              {req.steps.slice(0, -1).map((s, j) => (
-                                <span key={j}>{s.recipeName}×{s.quantity}{j < req.steps.length - 2 ? ' → ' : ''}</span>
-                              ))}
-                            </div>
-                          </div>
-                        ));
+                            {expanded.map((req, i) => {
+                              // 提取配方链（去掉最后一步，因为最后一步是最终材料）
+                              const recipeSteps = req.steps.slice(0, -1);
+                              // 生成配方关系描述
+                              let recipeRelation = '';
+                              if (recipeSteps.length >= 1) {
+                                // 最近的配方作为"直接需求"
+                                const directRecipe = recipeSteps[recipeSteps.length - 1];
+                                // 查找这个配方的材料
+                                const directRecipeData = recipes.find(r => r.name === directRecipe.recipeName);
+                                if (directRecipeData && directRecipeData.ingredients.length > 0) {
+                                  // 计算需要的数量
+                                  const multiplier = directRecipe.quantity / directRecipeData.outputQuantity;
+                                  const ing = directRecipeData.ingredients[0];
+                                  recipeRelation = `${directRecipe.recipeName} 1 = ${ing.materialName} ${ing.quantity} × ${multiplier.toFixed(0)}`;
+                                }
+                              }
+                              
+                              return (
+                                <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {/* 配方链 */}
+                                    <div className={cn("text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
+                                      {recipeSteps.length > 0 ? (
+                                        recipeSteps.map((s, j) => (
+                                          <span key={j}>
+                                            {s.recipeName}×{s.quantity}
+                                            {j < recipeSteps.length - 1 && <span className="mx-1">→</span>}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className={isDark ? "text-slate-500" : "text-gray-400"}>-</span>
+                                      )}
+                                    </div>
+                                    {/* 配方关系 */}
+                                    <div className={cn("text-xs font-medium", isDark ? "text-blue-400" : "text-blue-600")}>
+                                      {recipeRelation || '-'}
+                                    </div>
+                                    {/* 最终需求 */}
+                                    <div className="flex items-center justify-between">
+                                      <div className={isDark ? "text-slate-200" : "text-gray-700"}>{req.materialName}</div>
+                                      <div className={cn("font-medium", 
+                                        req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
+                                      )}>
+                                        {formatQuantity(req.quantity)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        );
                       })()
                     ) : (
-                      // 不展开模式：显示直接原材料
-                      recipe.ingredients.map((ing, i) => {
-                        const totalReq = ing.quantity * target.quantity;
-                        return (
-                          <div key={i} className={cn("grid grid-cols-3 px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
-                            <div className={isDark ? "text-slate-200" : "text-gray-700"}>{ing.materialName}</div>
-                            <div className={cn("text-center", isDark ? "text-slate-400" : "text-gray-500")}>×{ing.quantity}</div>
-                            <div className={cn("text-center font-medium", 
-                              totalReq > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                            )}>
-                              {formatQuantity(totalReq)}
-                            </div>
+                      // 不展开模式：显示直接配方材料
+                      <>
+                        <div className={cn("px-3 py-2 border-b", isDark ? "border-slate-700 bg-slate-700/50" : "border-gray-200 bg-gray-100")}>
+                          <div className="grid grid-cols-3 gap-2 text-xs font-medium">
+                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>材料</div>
+                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>配方产出</div>
+                            <div className={isDark ? "text-slate-400" : "text-gray-600"}>总需求</div>
                           </div>
-                        );
-                      })
+                        </div>
+                        {recipe.ingredients.map((ing, i) => {
+                          const totalReq = ing.quantity * target.quantity;
+                          return (
+                            <div key={i} className={cn("px-3 py-2 border-b last:border-0", isDark ? "border-slate-700" : "border-gray-100")}>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className={isDark ? "text-slate-200" : "text-gray-700"}>{ing.materialName}</div>
+                                <div className={cn("text-center text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
+                                  ×{ing.quantity} [{recipe.name} 1]
+                                </div>
+                                <div className={cn("text-right font-medium", 
+                                  totalReq > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
+                                )}>
+                                  {formatQuantity(totalReq)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
                     )}
                   </div>
                 )}
@@ -777,12 +836,29 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                   <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>原材料</th>
                   <th className={cn("text-right py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
                   <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>单位</th>
-                  {expandSubRecipes && <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>加工步骤</th>}
+                  {expandSubRecipes && (
+                    <>
+                      <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>配方链</th>
+                      <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>配方关系</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {results.map((req, idx) => {
                   const expReq = expandedResults[idx];
+                  // 计算配方关系
+                  let recipeRelation = '-';
+                  if (expReq?.steps && expReq.steps.length > 1) {
+                    const directRecipe = expReq.steps[expReq.steps.length - 1];
+                    const directRecipeData = recipes.find(r => r.name === directRecipe.recipeName);
+                    if (directRecipeData && directRecipeData.ingredients.length > 0) {
+                      const multiplier = directRecipe.quantity / directRecipeData.outputQuantity;
+                      const ing = directRecipeData.ingredients[0];
+                      recipeRelation = `${directRecipe.recipeName} 1 = ${ing.materialName} ${ing.quantity} × ${multiplier.toFixed(0)}`;
+                    }
+                  }
+                  
                   return (
                     <tr key={req.materialId} className={cn("border-b", isDark ? "border-slate-700" : "border-gray-100")}>
                       <td className={cn("py-2 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{req.materialName}</td>
@@ -793,17 +869,22 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       </td>
                       <td className={cn("py-2 px-3", isDark ? "text-slate-400" : "text-gray-500")}>{req.unit}</td>
                       {expandSubRecipes && (
-                        <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
-                          {expReq?.steps && expReq.steps.length > 0 ? (
-                            <span className="text-blue-400">
-                              {expReq.steps.map((s, i) => (
-                                <span key={i}>{s.recipeName}×{s.quantity}{i < expReq.steps.length - 1 ? ' → ' : ''}</span>
-                              ))}
-                            </span>
-                          ) : (
-                            <span className={isDark ? "text-slate-500" : "text-gray-400"}>-</span>
-                          )}
-                        </td>
+                        <>
+                          <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
+                            {expReq?.steps && expReq.steps.length > 0 ? (
+                              <span className="text-blue-400">
+                                {expReq.steps.map((s, i) => (
+                                  <span key={i}>{s.recipeName}×{s.quantity}{i < expReq.steps.length - 1 ? ' → ' : ''}</span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className={isDark ? "text-slate-500" : "text-gray-400"}>-</span>
+                            )}
+                          </td>
+                          <td className={cn("py-2 px-3 text-xs font-medium", isDark ? "text-cyan-400" : "text-cyan-600")}>
+                            {recipeRelation}
+                          </td>
+                        </>
                       )}
                     </tr>
                   );
