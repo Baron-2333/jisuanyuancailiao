@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, Loader2 } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, LogIn, Loader2, Lock } from 'lucide-react';
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep } from './utils/storage';
 import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement } from './utils/calculator';
@@ -8,6 +8,9 @@ import { loginWithEmail, logout, getCurrentUser } from './utils/auth';
 
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'processes' | 'recipes' | 'history';
+
+// 登录用户可访问的Tab
+const authorizedTabs: TabType[] = ['materials', 'processes', 'recipes', 'history'];
 
 // 单个目标材料配置
 interface TargetMaterial {
@@ -49,6 +52,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false); // 登录弹窗
 
   // 检查登录状态
   useEffect(() => {
@@ -129,76 +133,125 @@ export default function App() {
         </div>
       )}
 
-      {/* 未登录 - 登录页面 */}
+      {/* 未登录 - 仅显示配方计算页面 */}
       {isLoggedIn === false && (
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <div className={cn("w-full max-w-md rounded-2xl p-8 backdrop-blur-xl", isDark ? "bg-slate-800/80 border border-slate-700/50" : "bg-white/80 border border-gray-200/50 shadow-xl")}>
-            <div className="text-center mb-8">
-              <Calculator className={cn("mx-auto mb-4", isDark ? "text-blue-400" : "text-blue-600")} size={56} />
-              <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
-              <p className={cn("mt-2", isDark ? "text-slate-400" : "text-gray-500")}>请登录以继续使用</p>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-5">
+        <>
+          {/* Header */}
+          <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
+            <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div>
-                <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
-                  邮箱
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={e => setLoginEmail(e.target.value)}
-                  className={cn("w-full px-4 py-3 rounded-lg text-base", 
-                    isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
-                  )}
-                  placeholder="请输入邮箱"
-                  disabled={loginLoading}
-                />
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
+                <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
-                  密码
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={e => setLoginPassword(e.target.value)}
-                  className={cn("w-full px-4 py-3 rounded-lg text-base", 
-                    isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
-                  )}
-                  placeholder="请输入密码"
-                  disabled={loginLoading}
-                />
-              </div>
-
-              {loginError && (
-                <div className={cn("p-3 rounded-lg text-sm text-center", isDark ? "bg-red-900/50 text-red-300" : "bg-red-50 text-red-600")}>
-                  {loginError}
-                </div>
-              )}
-
               <button
-                type="submit"
-                disabled={loginLoading}
+                onClick={() => {
+                  setActiveTab('calculator');
+                  setShowLoginModal(true);
+                }}
                 className={cn(
-                  "w-full py-3 rounded-lg text-base font-medium flex items-center justify-center gap-2",
-                  isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white",
-                  loginLoading && "opacity-50 cursor-not-allowed"
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                  isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
                 )}
               >
-                {loginLoading && <Loader2 className="animate-spin" size={20} />}
-                {loginLoading ? '登录中...' : '登录'}
+                <LogIn size={16} />
+                登录
               </button>
-            </form>
+            </div>
+          </header>
 
-            <p className={cn("text-center text-sm mt-6", isDark ? "text-slate-500" : "text-gray-400")}>
-              账号由管理员分配，请联系获取登录权限
-            </p>
-          </div>
-        </div>
+          {/* 配方计算页面（唯一可访问的页面） */}
+          <main className="max-w-6xl mx-auto px-4 py-6">
+            <CalculatorView 
+              materials={materials} 
+              recipes={recipes}
+              savedCalc={savedCalc}
+              onCalculated={refreshData}
+              onSave={handleSaveCalculation}
+              isDark={isDark}
+              isGuestMode={true}
+              onShowLogin={() => setShowLoginModal(true)}
+            />
+          </main>
+
+          {/* 登录弹窗 */}
+          {showLoginModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLoginModal(false)}>
+              <div 
+                className={cn("w-full max-w-md rounded-2xl p-8 backdrop-blur-xl", isDark ? "bg-slate-800/95 border border-slate-700/50" : "bg-white/95 border border-gray-200/50 shadow-xl")} 
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={cn("text-xl font-bold", isDark ? "text-white" : "text-gray-800")}>登录</h2>
+                  <button 
+                    onClick={() => setShowLoginModal(false)}
+                    className={cn("p-2 rounded-lg", isDark ? "text-slate-400 hover:bg-slate-700" : "text-gray-500 hover:bg-gray-100")}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                      用户名/邮箱
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={loginEmail}
+                      onChange={e => setLoginEmail(e.target.value)}
+                      className={cn("w-full px-4 py-3 rounded-lg text-base", 
+                        isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+                      )}
+                      placeholder="请输入用户名或邮箱"
+                      disabled={loginLoading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                      密码
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={e => setLoginPassword(e.target.value)}
+                      className={cn("w-full px-4 py-3 rounded-lg text-base", 
+                        isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+                      )}
+                      placeholder="请输入密码"
+                      disabled={loginLoading}
+                    />
+                  </div>
+
+                  {loginError && (
+                    <div className={cn("p-3 rounded-lg text-sm text-center", isDark ? "bg-red-900/50 text-red-300" : "bg-red-50 text-red-600")}>
+                      {loginError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loginLoading}
+                    className={cn(
+                      "w-full py-3 rounded-lg text-base font-medium flex items-center justify-center gap-2",
+                      isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white",
+                      loginLoading && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {loginLoading && <Loader2 className="animate-spin" size={20} />}
+                    {loginLoading ? '登录中...' : '登录'}
+                  </button>
+                </form>
+
+                <p className={cn("text-center text-sm mt-6", isDark ? "text-slate-500" : "text-gray-400")}>
+                  登录后可访问全部功能
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* 已登录 - 主界面 */}
@@ -299,13 +352,15 @@ export default function App() {
 }
 
 // ============ 配方计算视图 ============
-function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, isDark }: { 
+function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, isDark, isGuestMode = false, onShowLogin }: { 
   materials: Material[]; 
   recipes: Recipe[];
   savedCalc: SavedCalculation | null;
   onCalculated: () => void;
   onSave: (targets: TargetMaterial[], results: MaterialRequirement[]) => void;
   isDark: boolean;
+  isGuestMode?: boolean;
+  onShowLogin?: () => void;
 }) {
   const [targets, setTargets] = useState<TargetMaterial[]>(
     savedCalc?.targets?.length ? savedCalc.targets : [{ id: '1', recipeId: '', quantity: 1 }]
@@ -393,8 +448,11 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
       setResults(result.results);
       setExpandedResults(result.expandedResults || []);
       setShowResults(true);
-      onCalculated();
-      onSave(targets, result.results);
+      // 访客模式不保存历史记录
+      if (!isGuestMode) {
+        onCalculated();
+        onSave(targets, result.results);
+      }
     }
   };
 
@@ -419,7 +477,10 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
     setExpandedResults([]);
     setShowResults(false);
     setPreviewResults(new Map());
-    onSave([], []);
+    // 访客模式不保存重置状态
+    if (!isGuestMode) {
+      onSave([], []);
+    }
   };
 
   const handleExport = () => {
@@ -438,6 +499,29 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
 
   return (
     <div className="space-y-5">
+      {/* 访客模式提示 */}
+      {isGuestMode && (
+        <div className={cn("rounded-xl p-4 flex items-center justify-between", isDark ? "bg-amber-900/30 border border-amber-700/50" : "bg-amber-50 border border-amber-200")}>
+          <div className="flex items-center gap-3">
+            <Lock className={isDark ? "text-amber-400" : "text-amber-600"} size={20} />
+            <div>
+              <p className={cn("font-medium", isDark ? "text-amber-300" : "text-amber-800")}>当前为访客模式</p>
+              <p className={cn("text-sm", isDark ? "text-amber-400/70" : "text-amber-600")}>计算结果不会保存，登录后可解锁全部功能</p>
+            </div>
+          </div>
+          <button
+            onClick={onShowLogin}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
+              isDark ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"
+            )}
+          >
+            <LogIn size={16} />
+            登录
+          </button>
+        </div>
+      )}
+
       {/* 多目标材料输入 */}
       <div className={cardClass}>
         <div className="flex items-center justify-between mb-4">
