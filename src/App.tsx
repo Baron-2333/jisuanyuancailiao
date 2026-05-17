@@ -963,6 +963,10 @@ function TraceView({ materials, isDark }: {
   const [traceableMaterials, setTraceableMaterials] = useState<TraceableMaterial[]>(getTraceableMaterials());
   const [traceForm, setTraceForm] = useState({ materialId: '', materialName: '', targetMaterialId: '', targetMaterialName: '', targetQuantity: 1 });
 
+  // 分类材料
+  const rawMaterials = materials.filter(m => !m.processedFrom);
+  const processedMaterials = materials.filter(m => m.processedFrom);
+
   const cardClass = cn("rounded-xl p-6 backdrop-blur-xl", isDark ? "bg-slate-800/50 border border-slate-700/50" : "bg-white/50 border border-gray-200/50 shadow-sm");
 
   // 保存溯源配置
@@ -1008,12 +1012,23 @@ function TraceView({ materials, isDark }: {
                   const mat = materials.find(m => m.id === e.target.value);
                   setTraceForm({ ...traceForm, materialId: e.target.value, materialName: mat?.name || '' });
                 }}
-                className={cn("w-full px-3 py-2.5 rounded-lg text-sm", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
+                className={cn("w-full px-3 py-2.5 rounded-lg text-sm border", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
               >
                 <option value="">选择材料...</option>
-                {materials.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                {rawMaterials.length > 0 && (
+                  <optgroup label="基础材料">
+                    {rawMaterials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {processedMaterials.length > 0 && (
+                  <optgroup label="加工产物">
+                    {processedMaterials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div>
@@ -1024,12 +1039,23 @@ function TraceView({ materials, isDark }: {
                   const mat = materials.find(m => m.id === e.target.value);
                   setTraceForm({ ...traceForm, targetMaterialId: e.target.value, targetMaterialName: mat?.name || '' });
                 }}
-                className={cn("w-full px-3 py-2.5 rounded-lg text-sm", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
+                className={cn("w-full px-3 py-2.5 rounded-lg text-sm border", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
               >
                 <option value="">选择目标...</option>
-                {materials.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                {rawMaterials.length > 0 && (
+                  <optgroup label="基础材料">
+                    {rawMaterials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {processedMaterials.length > 0 && (
+                  <optgroup label="加工产物">
+                    {processedMaterials.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div>
