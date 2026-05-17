@@ -225,3 +225,26 @@ export function performCalculation(
 
   return { results, expandedResults };
 }
+
+/**
+ * 导出CSV格式
+ */
+export function exportToCSV(results: { materialName: string; totalQuantity: number; unit: string }[]): string {
+  const header = '原材料,数量,单位\n';
+  const rows = results.map(r => `${r.materialName},${r.totalQuantity},${r.unit}`).join('\n');
+  return header + rows;
+}
+
+/**
+ * 下载CSV文件
+ */
+export function downloadCSV(results: { materialName: string; totalQuantity: number; unit: string }[]): void {
+  const csv = exportToCSV(results);
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `原材料清单_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}

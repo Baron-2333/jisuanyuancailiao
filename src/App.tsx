@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon } from 'lucide-react';
 import { cn } from './utils/utils';
-import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation } from './utils/storage';
+import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe } from './utils/storage';
 import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement } from './utils/calculator';
 import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient } from './types';
 
@@ -991,8 +991,19 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
               <div className={cn("mt-3 pt-3 border-t", isDark ? "border-slate-700" : "border-gray-100")}>
                 <div className="flex flex-wrap gap-1.5">
                   {recipe.ingredients.map((ing, idx) => (
-                    <span key={idx} className={cn("inline-block px-2 py-0.5 rounded text-xs", isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600")}>
+                    <span key={idx} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs", isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600")}>
                       {ing.materialName} ×{ing.quantity}
+                      <button
+                        onClick={() => {
+                          if (confirm(`确定要从"${recipe.name}"中移除"${ing.materialName}"吗？`)) {
+                            removeIngredientFromRecipe(recipe.id, ing.materialId);
+                            onRecipesChange();
+                          }
+                        }}
+                        className={cn("ml-0.5 hover:text-red-500", isDark ? "text-slate-500" : "text-gray-400")}
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
                 </div>

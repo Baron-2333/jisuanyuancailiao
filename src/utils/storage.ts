@@ -79,6 +79,17 @@ export function deleteRecipe(id: string): void {
   saveRecipes(recipes);
 }
 
+// 从配方中移除某个原材料
+export function removeIngredientFromRecipe(recipeId: string, materialId: string): void {
+  const recipes = getRecipes();
+  const index = recipes.findIndex(r => r.id === recipeId);
+  if (index !== -1) {
+    recipes[index].ingredients = recipes[index].ingredients.filter(i => i.materialId !== materialId);
+    recipes[index].updatedAt = Date.now();
+    saveRecipes(recipes);
+  }
+}
+
 // 历史记录管理
 export function getHistory(): CalculationHistory[] {
   return getStorageData<CalculationHistory[]>(STORAGE_KEYS.HISTORY, []);
