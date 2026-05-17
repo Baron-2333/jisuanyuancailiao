@@ -401,6 +401,7 @@ export default function App() {
         {activeTab === 'trace' && (
           <TraceView 
             materials={materials}
+            processSteps={processSteps}
             isDark={isDark}
           />
         )}
@@ -956,16 +957,39 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
 }
 
 // ============ 溯源配置视图 ============
-function TraceView({ materials, isDark }: { 
+function TraceView({ materials, processSteps, isDark }: { 
   materials: Material[];
+  processSteps: ProcessStep[];
   isDark: boolean;
 }) {
   const [traceableMaterials, setTraceableMaterials] = useState<TraceableMaterial[]>(getTraceableMaterials());
   const [traceForm, setTraceForm] = useState({ materialId: '', materialName: '', targetMaterialId: '', targetMaterialName: '', targetQuantity: 1 });
 
-  // 分类材料
-  const rawMaterials = materials.filter(m => !m.processedFrom);
-  const processedMaterials = materials.filter(m => m.processedFrom);
+  // 获取所有可用材料（基础材料 + 加工产物）
+  const getAllAvailableMaterials = () => {
+    const all: { id: string; name: string; type: 'raw' | 'processed' }[] = [];
+    
+    // 基础材料
+    materials.forEach(m => {
+      all.push({ id: m.id, name: m.name, type: 'raw' });
+    });
+    
+    // 加工产物
+    processSteps.forEach(step => {
+      step.outputs.forEach(output => {
+        const processedId = `processed:${output.name.trim()}`;
+        if (output.name.trim() && !all.some(m => m.id === processedId)) {
+          all.push({ id: processedId, name: output.name.trim(), type: 'processed' });
+        }
+      });
+    });
+    
+    return all;
+  };
+
+  const allMaterials = getAllAvailableMaterials();
+  const rawMaterials = allMaterials.filter(m => m.type === 'raw');
+  const processedMaterials = allMaterials.filter(m => m.type === 'processed');
 
   const cardClass = cn("rounded-xl p-6 backdrop-blur-xl", isDark ? "bg-slate-800/50 border border-slate-700/50" : "bg-white/50 border border-gray-200/50 shadow-sm");
 
@@ -1009,7 +1033,7 @@ function TraceView({ materials, isDark }: {
               <select
                 value={traceForm.materialId}
                 onChange={e => {
-                  const mat = materials.find(m => m.id === e.target.value);
+                  const mat = allMaterials.find(m => m.id === e.target.value);
                   setTraceForm({ ...traceForm, materialId: e.target.value, materialName: mat?.name || '' });
                 }}
                 className={cn("w-full px-3 py-2.5 rounded-lg text-sm border", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
@@ -1036,7 +1060,7 @@ function TraceView({ materials, isDark }: {
               <select
                 value={traceForm.targetMaterialId}
                 onChange={e => {
-                  const mat = materials.find(m => m.id === e.target.value);
+                  const mat = allMaterials.find(m => m.id === e.target.value);
                   setTraceForm({ ...traceForm, targetMaterialId: e.target.value, targetMaterialName: mat?.name || '' });
                 }}
                 className={cn("w-full px-3 py-2.5 rounded-lg text-sm border", isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300")}
