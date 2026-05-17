@@ -158,16 +158,19 @@ export default function App() {
                 <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
-              <button
-                onClick={() => setShowLoginModal(true)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
-                  isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
-                )}
-              >
-                <LogIn size={16} />
-                登录
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <span className={cn("text-xs", isDark ? "text-slate-500" : "text-gray-400")}>本网站代码100%由AI生成</span>
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                    isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+                  )}
+                >
+                  <LogIn size={16} />
+                  登录
+                </button>
+              </div>
             </div>
           </header>
 
@@ -312,16 +315,19 @@ export default function App() {
                 <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
-              <button
-                onClick={handleLogout}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
-                  isDark ? "bg-slate-700/80 hover:bg-slate-600 text-slate-300" : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                )}
-              >
-                <LogOut size={16} />
-                退出登录
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <span className={cn("text-xs", isDark ? "text-slate-500" : "text-gray-400")}>本网站代码100%由AI生成</span>
+                <button
+                  onClick={handleLogout}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                    isDark ? "bg-slate-700/80 hover:bg-slate-600 text-slate-300" : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  )}
+                >
+                  <LogOut size={16} />
+                  退出登录
+                </button>
+              </div>
             </div>
           </header>
 
