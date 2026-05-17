@@ -94,10 +94,13 @@ export default function App() {
 
   // 加载数据
   useEffect(() => {
+    // 配方和原材料数据始终加载（未登录用户也需要使用配方计算）
+    setMaterials(getMaterials());
+    setProcessSteps(getProcessSteps());
+    setRecipes(getRecipes());
+    
+    // 只有登录用户才加载历史记录
     if (isLoggedIn) {
-      setMaterials(getMaterials());
-      setProcessSteps(getProcessSteps());
-      setRecipes(getRecipes());
       setHistory(getHistory());
       const saved = getSavedCalculation();
       if (saved) setSavedCalc(saved);
@@ -109,8 +112,11 @@ export default function App() {
     setMaterials(getMaterials());
     setProcessSteps(getProcessSteps());
     setRecipes(getRecipes());
-    setHistory(getHistory());
-  }, []);
+    // 只有登录用户才刷新历史记录
+    if (isLoggedIn) {
+      setHistory(getHistory());
+    }
+  }, [isLoggedIn]);
 
   // 保存计算状态
   const handleSaveCalculation = useCallback((targets: TargetMaterial[], results: MaterialRequirement[]) => {
