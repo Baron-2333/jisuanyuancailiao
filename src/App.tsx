@@ -502,13 +502,13 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
   };
 
   // 格式化总需求带溯源
-  const formatSummaryWithTrace = (materialName: string, quantity: number, materialId: string): string => {
+  const formatSummaryWithTrace = (quantity: number, materialId: string): string => {
     const trace = getTraceableInfo(materialId);
     if (trace) {
       const targetQty = trace.targetQuantity * quantity;
-      return `${targetQty} 个 (包含 ${quantity} 个 ${materialName})`;
+      return `${targetQty} (包含 ${quantity})`;
     }
-    return `${quantity} ${materialName}`;
+    return `${quantity}`;
   };
 
   // 计算所有目标材料的总需求
@@ -875,7 +875,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                       <td className={cn("py-2 px-3 text-right font-semibold", 
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
-                        {formatSummaryWithTrace(req.materialName, req.totalQuantity, req.materialId)}
+                        {formatSummaryWithTrace(req.totalQuantity, req.materialId)}
                       </td>
                     </tr>
                   );
@@ -962,7 +962,7 @@ function TraceView({ materials, processSteps, isDark }: {
         <h2 className={cn("text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-800")}>溯源配置</h2>
         <p className={cn("text-sm mb-6", isDark ? "text-slate-400" : "text-gray-500")}>
           配置溯源材料后，配方计算结果将展开显示原材料的来源。<br/>
-          例如：配置铁块 → 铁锭 9个后，计算结果会显示为 <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>1个(包含1个铁块)</span>，总需求显示为 <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>9个(包含1个铁块)</span>
+          例如：配置铁块 → 铁锭 9个后，计算结果会显示为 <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>1 (包含 1)</span>，总需求显示为 <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>9 (包含 1)</span>
         </p>
 
         {/* 添加溯源表单 */}
