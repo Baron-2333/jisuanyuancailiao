@@ -7,6 +7,14 @@ export interface TargetConfig {
   quantity: number;
 }
 
+// 是否保存历史记录的标记
+let shouldSaveHistory = true;
+
+// 控制是否保存历史记录
+export function setSaveHistory(shouldSave: boolean): void {
+  shouldSaveHistory = shouldSave;
+}
+
 // 展开后的原材料需求（带层级信息）
 export interface ExpandedRequirement {
   materialId: string;
@@ -221,7 +229,10 @@ export function performCalculation(
     }),
     results,
   };
-  addHistory(historyRecord);
+  // 只有标记为需要保存时才添加历史记录
+  if (shouldSaveHistory) {
+    addHistory(historyRecord);
+  }
 
   return { results, expandedResults };
 }

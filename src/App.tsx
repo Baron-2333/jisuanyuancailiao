@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, LogIn, Loader2, Lock } from 'lucide-react';
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep } from './utils/storage';
-import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement } from './utils/calculator';
+import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement, setSaveHistory } from './utils/calculator';
 import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep } from './types';
 import { loginWithEmail, logout, getCurrentUser } from './utils/auth';
 
@@ -449,12 +449,15 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
       quantity: t.quantity,
     }));
 
+    // 设置是否保存历史记录（访客模式不保存）
+    setSaveHistory(!isGuestMode);
+
     const result = performCalculation(configs, expandSubRecipes);
     if (result) {
       setResults(result.results);
       setExpandedResults(result.expandedResults || []);
       setShowResults(true);
-      // 访客模式不保存历史记录
+      // 访客模式不保存计算状态
       if (!isGuestMode) {
         onCalculated();
         onSave(targets, result.results);
