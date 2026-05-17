@@ -1,4 +1,4 @@
-import { Material, Recipe, CalculationHistory } from '../types';
+import { Material, Recipe, CalculationHistory, ProcessStep } from '../types';
 import tcb from 'tcb-js-sdk';
 
 // 环境配置
@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   MATERIALS: 'material_calculator_materials',
   RECIPES: 'material_calculator_recipes',
   HISTORY: 'material_calculator_history',
+  PROCESS_STEPS: 'material_calculator_process_steps',
   CALCULATION: 'material_calculator_saved_calc',
   SYNC_KEY: 'material_calculator_last_sync',
 };
@@ -139,6 +140,37 @@ export function clearHistory(): void {
 export function deleteHistoryItem(id: string): void {
   const history = getHistory().filter(h => h.id !== id);
   saveHistory(history);
+}
+
+// ============ 加工步骤管理 ============
+
+export function getProcessSteps(): ProcessStep[] {
+  return getStorageData<ProcessStep[]>(STORAGE_KEYS.PROCESS_STEPS, []);
+}
+
+export function saveProcessSteps(steps: ProcessStep[]): void {
+  setStorageData(STORAGE_KEYS.PROCESS_STEPS, steps);
+}
+
+export function addProcessStep(step: ProcessStep): void {
+  const steps = getProcessSteps();
+  steps.push(step);
+  saveProcessSteps(steps);
+  syncToCloud('processSteps', 'add', step);
+}
+
+export function updateProcessStep(id: string, updates: Partial<ProcessStep>): void {
+  const steps = getProcessSteps();
+  const index = steps.findIndex(s => s.id === id);
+  if (index !== -1) {
+    steps[index] = { ...steps[index], ...updates };
+    saveProcessSteps(steps);
+  }
+}
+
+export function deleteProcessStep(id: string): void {
+  const steps = getProcessSteps().filter(s => s.id !== id);
+  saveProcessSteps(steps);
 }
 
 // 工具函数：生成唯一ID

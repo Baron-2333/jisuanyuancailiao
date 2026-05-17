@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog } from 'lucide-react';
 import { cn } from './utils/utils';
-import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe } from './utils/storage';
+import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep } from './utils/storage';
 import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep } from './types';
 
 // Tab类型
-type TabType = 'calculator' | 'materials' | 'recipes' | 'history';
+type TabType = 'calculator' | 'materials' | 'processes' | 'recipes' | 'history';
 
 // 单个目标材料配置
 interface TargetMaterial {
@@ -26,6 +26,7 @@ interface SavedCalculation {
 const tabs = [
   { id: 'calculator' as TabType, label: '配方计算', icon: Calculator },
   { id: 'materials' as TabType, label: '原材料管理', icon: Package },
+  { id: 'processes' as TabType, label: '加工步骤', icon: Cog },
   { id: 'recipes' as TabType, label: '配方管理', icon: BookOpen },
   { id: 'history' as TabType, label: '历史记录', icon: History },
 ];
@@ -36,6 +37,7 @@ const isDark = true;
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('calculator');
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [history, setHistory] = useState<CalculationHistory[]>([]);
   const [savedCalc, setSavedCalc] = useState<SavedCalculation | null>(null);
@@ -43,6 +45,7 @@ export default function App() {
   // 加载数据
   useEffect(() => {
     setMaterials(getMaterials());
+    setProcessSteps(getProcessSteps());
     setRecipes(getRecipes());
     setHistory(getHistory());
     const saved = getSavedCalculation();
@@ -52,6 +55,7 @@ export default function App() {
   // 刷新数据
   const refreshData = useCallback(() => {
     setMaterials(getMaterials());
+    setProcessSteps(getProcessSteps());
     setRecipes(getRecipes());
     setHistory(getHistory());
   }, []);
@@ -117,6 +121,14 @@ export default function App() {
           <MaterialsView 
             materials={materials} 
             onMaterialsChange={refreshData}
+            isDark={isDark}
+          />
+        )}
+        {activeTab === 'processes' && (
+          <ProcessStepsView 
+            materials={materials}
+            processSteps={processSteps}
+            onProcessStepsChange={refreshData}
             isDark={isDark}
           />
         )}
@@ -705,6 +717,228 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============ 加工步骤管理视图 ============
+function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDark }: {
+  materials: Material[];
+  processSteps: ProcessStep[];
+  onProcessStepsChange: () => void;
+  isDark: boolean;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    inputName: '',
+    inputQuantity: 1,
+    processName: '',
+    outputName: '',
+    outputQuantity: 1,
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredSteps = processSteps.filter(s => 
+    s.inputName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.outputName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.processName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.inputName.trim() || !formData.processName.trim() || !formData.outputName.trim()) return;
+
+    if (editingId) {
+      updateProcessStep(editingId, {
+        inputName: formData.inputName.trim(),
+        inputQuantity: formData.inputQuantity,
+        processName: formData.processName.trim(),
+        outputName: formData.outputName.trim(),
+        outputQuantity: formData.outputQuantity,
+      });
+      setEditingId(null);
+    } else {
+      const newStep: ProcessStep = {
+        id: generateId(),
+        inputName: formData.inputName.trim(),
+        inputQuantity: formData.inputQuantity,
+        processName: formData.processName.trim(),
+        outputName: formData.outputName.trim(),
+        outputQuantity: formData.outputQuantity,
+        createdAt: Date.now(),
+      };
+      addProcessStep(newStep);
+    }
+
+    resetForm();
+    onProcessStepsChange();
+  };
+
+  const resetForm = () => {
+    setFormData({
+      inputName: '',
+      inputQuantity: 1,
+      processName: '',
+      outputName: '',
+      outputQuantity: 1,
+    });
+    setShowForm(false);
+    setEditingId(null);
+  };
+
+  const handleEdit = (step: ProcessStep) => {
+    setFormData({
+      inputName: step.inputName,
+      inputQuantity: step.inputQuantity,
+      processName: step.processName,
+      outputName: step.outputName,
+      outputQuantity: step.outputQuantity,
+    });
+    setEditingId(step.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('确定要删除这个加工步骤吗？')) {
+      deleteProcessStep(id);
+      onProcessStepsChange();
+    }
+  };
+
+  return (
+    <div className={cn("p-4", isDark ? "text-slate-200" : "text-gray-700")}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">加工步骤管理</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium", isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white")}
+        >
+          <Plus size={16} />
+          {showForm ? '取消' : '添加步骤'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className={cn("p-4 rounded-lg mb-4", isDark ? "bg-slate-800" : "bg-gray-100")}>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>原材料名称</label>
+              <input
+                type="text"
+                value={formData.inputName}
+                onChange={e => setFormData({ ...formData, inputName: e.target.value })}
+                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                placeholder="如：铁锭"
+                required
+              />
+            </div>
+            <div>
+              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>原材料数量</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.inputQuantity}
+                onChange={e => setFormData({ ...formData, inputQuantity: Number(e.target.value) })}
+                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                required
+              />
+            </div>
+            <div>
+              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>加工步骤</label>
+              <input
+                type="text"
+                value={formData.processName}
+                onChange={e => setFormData({ ...formData, processName: e.target.value })}
+                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                placeholder="如：压制"
+                required
+              />
+            </div>
+            <div>
+              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产物名称</label>
+              <input
+                type="text"
+                value={formData.outputName}
+                onChange={e => setFormData({ ...formData, outputName: e.target.value })}
+                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                placeholder="如：铁板"
+                required
+              />
+            </div>
+            <div>
+              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产物数量</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.outputQuantity}
+                onChange={e => setFormData({ ...formData, outputQuantity: Number(e.target.value) })}
+                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                required
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button type="submit" className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium", isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
+              <Save size={16} />
+              {editingId ? '保存修改' : '确认添加'}
+            </button>
+            <button type="button" onClick={resetForm} className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium", isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-300 hover:bg-gray-400 text-gray-700")}>
+              <X size={16} />
+              取消
+            </button>
+          </div>
+        </form>
+      )}
+
+      <input
+        type="text"
+        placeholder="搜索..."
+        value={searchTerm}
+        onChange={e => setSearchTerm(e.target.value)}
+        className={cn("w-full px-4 py-2 rounded border mb-4 text-sm", isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300")}
+      />
+
+      {filteredSteps.length === 0 ? (
+        <div className={cn("text-center py-12 rounded-lg", isDark ? "bg-slate-800" : "bg-gray-100")}>
+          <Cog size={48} className={cn("mx-auto mb-2 opacity-30", isDark ? "text-slate-500" : "text-gray-400")} />
+          <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>
+            {searchTerm ? '没有找到匹配的加工步骤' : '暂无加工步骤，点击上方按钮添加'}
+          </p>
+        </div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className={isDark ? "bg-slate-700/50" : "bg-gray-50"}>
+            <tr>
+              <th className={cn("text-left py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>原材料</th>
+              <th className={cn("text-center py-2.5 px-2 font-medium w-20", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
+              <th className={cn("text-center py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>加工步骤</th>
+              <th className={cn("text-left py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>产物</th>
+              <th className={cn("text-center py-2.5 px-2 font-medium w-20", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
+              <th className={cn("text-right py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredSteps.map(step => (
+              <tr key={step.id} className={cn("border-t", isDark ? "border-slate-700" : "border-gray-100")}>
+                <td className={cn("py-2.5 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{step.inputName}</td>
+                <td className={cn("py-2.5 px-2 text-center", isDark ? "text-slate-400" : "text-gray-500")}>{step.inputQuantity}</td>
+                <td className={cn("py-2.5 px-3 text-center", isDark ? "text-blue-400" : "text-blue-600")}>{step.processName}</td>
+                <td className={cn("py-2.5 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{step.outputName}</td>
+                <td className={cn("py-2.5 px-2 text-center", isDark ? "text-slate-400" : "text-gray-500")}>{step.outputQuantity}</td>
+                <td className="py-2.5 px-3 text-right">
+                  <button onClick={() => handleEdit(step)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                    <Edit2 size={15} />
+                  </button>
+                  <button onClick={() => handleDelete(step.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                    <Trash2 size={15} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -47,9 +47,21 @@ export interface RecipeConfig {
   targetQuantity: number;
 }
 
+// 加工步骤类型
+export interface ProcessStep {
+  id: string;
+  inputName: string;      // 原材料名称
+  inputQuantity: number; // 原材料数量
+  processName: string;    // 加工步骤名称
+  outputName: string;     // 产物名称
+  outputQuantity: number; // 产物数量
+  createdAt: number;
+}
+
 // 应用状态
 export interface AppState {
   materials: Material[];
   recipes: Recipe[];
   history: CalculationHistory[];
+  processSteps: ProcessStep[];
 }
