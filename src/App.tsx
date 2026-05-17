@@ -713,7 +713,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                                         <div className={cn("font-medium",
                                           req.quantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                                         )}>
-                                          {req.quantity} {req.unit}
+                                          {req.quantity}
                                         </div>
                                       )}
                                     </div>
@@ -758,7 +758,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
                                     <div className={cn("font-medium",
                                       totalReq > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                                     )}>
-                                      {formatQuantity(totalReq)}
+                                      {totalReq}
                                     </div>
                                   )}
                                 </div>
