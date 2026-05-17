@@ -730,42 +730,84 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    inputName: '',
-    inputQuantity: 1,
+  const [formData, setFormData] = useState<{
+    inputs: { name: string; quantity: number }[];
+    processName: string;
+    outputs: { name: string; quantity: number }[];
+  }>({
+    inputs: [{ name: '', quantity: 1 }],
     processName: '',
-    outputName: '',
-    outputQuantity: 1,
+    outputs: [{ name: '', quantity: 1 }],
   });
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredSteps = processSteps.filter(s => 
-    s.inputName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.outputName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.inputs.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    s.outputs.some(o => o.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     s.processName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // 添加原材料输入框
+  const addInput = () => {
+    if (formData.inputs.length < 9) {
+      setFormData({ ...formData, inputs: [...formData.inputs, { name: '', quantity: 1 }] });
+    }
+  };
+
+  // 移除原材料输入框
+  const removeInput = (index: number) => {
+    if (formData.inputs.length > 1) {
+      setFormData({ ...formData, inputs: formData.inputs.filter((_, i) => i !== index) });
+    }
+  };
+
+  // 更新原材料
+  const updateInput = (index: number, field: 'name' | 'quantity', value: string | number) => {
+    const newInputs = [...formData.inputs];
+    newInputs[index] = { ...newInputs[index], [field]: value };
+    setFormData({ ...formData, inputs: newInputs });
+  };
+
+  // 添加产物输入框
+  const addOutput = () => {
+    if (formData.outputs.length < 9) {
+      setFormData({ ...formData, outputs: [...formData.outputs, { name: '', quantity: 1 }] });
+    }
+  };
+
+  // 移除产物输入框
+  const removeOutput = (index: number) => {
+    if (formData.outputs.length > 1) {
+      setFormData({ ...formData, outputs: formData.outputs.filter((_, i) => i !== index) });
+    }
+  };
+
+  // 更新产物
+  const updateOutput = (index: number, field: 'name' | 'quantity', value: string | number) => {
+    const newOutputs = [...formData.outputs];
+    newOutputs[index] = { ...newOutputs[index], [field]: value };
+    setFormData({ ...formData, outputs: newOutputs });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.inputName.trim() || !formData.processName.trim() || !formData.outputName.trim()) return;
+    const validInputs = formData.inputs.filter(i => i.name.trim());
+    const validOutputs = formData.outputs.filter(o => o.name.trim());
+    if (validInputs.length === 0 || !formData.processName.trim() || validOutputs.length === 0) return;
 
     if (editingId) {
       updateProcessStep(editingId, {
-        inputName: formData.inputName.trim(),
-        inputQuantity: formData.inputQuantity,
+        inputs: validInputs.map(i => ({ name: i.name.trim(), quantity: i.quantity })),
         processName: formData.processName.trim(),
-        outputName: formData.outputName.trim(),
-        outputQuantity: formData.outputQuantity,
+        outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
       });
       setEditingId(null);
     } else {
       const newStep: ProcessStep = {
         id: generateId(),
-        inputName: formData.inputName.trim(),
-        inputQuantity: formData.inputQuantity,
+        inputs: validInputs.map(i => ({ name: i.name.trim(), quantity: i.quantity })),
         processName: formData.processName.trim(),
-        outputName: formData.outputName.trim(),
-        outputQuantity: formData.outputQuantity,
+        outputs: validOutputs.map(o => ({ name: o.name.trim(), quantity: o.quantity })),
         createdAt: Date.now(),
       };
       addProcessStep(newStep);
@@ -777,11 +819,9 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 
   const resetForm = () => {
     setFormData({
-      inputName: '',
-      inputQuantity: 1,
+      inputs: [{ name: '', quantity: 1 }],
       processName: '',
-      outputName: '',
-      outputQuantity: 1,
+      outputs: [{ name: '', quantity: 1 }],
     });
     setShowForm(false);
     setEditingId(null);
@@ -789,11 +829,9 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 
   const handleEdit = (step: ProcessStep) => {
     setFormData({
-      inputName: step.inputName,
-      inputQuantity: step.inputQuantity,
+      inputs: step.inputs.length > 0 ? step.inputs : [{ name: '', quantity: 1 }],
       processName: step.processName,
-      outputName: step.outputName,
-      outputQuantity: step.outputQuantity,
+      outputs: step.outputs.length > 0 ? step.outputs : [{ name: '', quantity: 1 }],
     });
     setEditingId(step.id);
     setShowForm(true);
@@ -821,64 +859,94 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 
       {showForm && (
         <form onSubmit={handleSubmit} className={cn("p-4 rounded-lg mb-4", isDark ? "bg-slate-800" : "bg-gray-100")}>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div>
-              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>原材料名称</label>
-              <input
-                type="text"
-                value={formData.inputName}
-                onChange={e => setFormData({ ...formData, inputName: e.target.value })}
-                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                placeholder="如：铁锭"
-                required
-              />
+          {/* 原材料输入 */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className={cn("text-sm font-medium", isDark ? "text-slate-300" : "text-gray-700")}>原材料 (1-9种)</label>
+              {formData.inputs.length < 9 && (
+                <button type="button" onClick={addInput} className={cn("text-xs px-2 py-1 rounded", isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
+                  + 添加原材料
+                </button>
+              )}
             </div>
-            <div>
-              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>原材料数量</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.inputQuantity}
-                onChange={e => setFormData({ ...formData, inputQuantity: Number(e.target.value) })}
-                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                required
-              />
-            </div>
-            <div>
-              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>加工步骤</label>
-              <input
-                type="text"
-                value={formData.processName}
-                onChange={e => setFormData({ ...formData, processName: e.target.value })}
-                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                placeholder="如：压制"
-                required
-              />
-            </div>
-            <div>
-              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产物名称</label>
-              <input
-                type="text"
-                value={formData.outputName}
-                onChange={e => setFormData({ ...formData, outputName: e.target.value })}
-                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                placeholder="如：铁板"
-                required
-              />
-            </div>
-            <div>
-              <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产物数量</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.outputQuantity}
-                onChange={e => setFormData({ ...formData, outputQuantity: Number(e.target.value) })}
-                className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
-                required
-              />
+            <div className="space-y-2">
+              {formData.inputs.map((input, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={input.name}
+                    onChange={e => updateInput(index, 'name', e.target.value)}
+                    className={cn("flex-1 px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    placeholder={`原材料${index + 1}名称`}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    value={input.quantity}
+                    onChange={e => updateInput(index, 'quantity', Number(e.target.value))}
+                    className={cn("w-20 px-2 py-2 rounded border text-sm text-center", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                  />
+                  {formData.inputs.length > 1 && (
+                    <button type="button" onClick={() => removeInput(index)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-          <div className="mt-3 flex gap-2">
+
+          {/* 加工步骤 */}
+          <div className="mb-4">
+            <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>加工步骤</label>
+            <input
+              type="text"
+              value={formData.processName}
+              onChange={e => setFormData({ ...formData, processName: e.target.value })}
+              className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+              placeholder="如：压制、熔炼、切割"
+              required
+            />
+          </div>
+
+          {/* 产物输出 */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className={cn("text-sm font-medium", isDark ? "text-slate-300" : "text-gray-700")}>产物 (1-9种)</label>
+              {formData.outputs.length < 9 && (
+                <button type="button" onClick={addOutput} className={cn("text-xs px-2 py-1 rounded", isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
+                  + 添加产物
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {formData.outputs.map((output, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={output.name}
+                    onChange={e => updateOutput(index, 'name', e.target.value)}
+                    className={cn("flex-1 px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    placeholder={`产物${index + 1}名称`}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    value={output.quantity}
+                    onChange={e => updateOutput(index, 'quantity', Number(e.target.value))}
+                    className={cn("w-20 px-2 py-2 rounded border text-sm text-center", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                  />
+                  {formData.outputs.length > 1 && (
+                    <button type="button" onClick={() => removeOutput(index)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
             <button type="submit" className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium", isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
               <Save size={16} />
               {editingId ? '保存修改' : '确认添加'}
@@ -907,37 +975,49 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
           </p>
         </div>
       ) : (
-        <table className="w-full text-sm">
-          <thead className={isDark ? "bg-slate-700/50" : "bg-gray-50"}>
-            <tr>
-              <th className={cn("text-left py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>原材料</th>
-              <th className={cn("text-center py-2.5 px-2 font-medium w-20", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
-              <th className={cn("text-center py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>加工步骤</th>
-              <th className={cn("text-left py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>产物</th>
-              <th className={cn("text-center py-2.5 px-2 font-medium w-20", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
-              <th className={cn("text-right py-2.5 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSteps.map(step => (
-              <tr key={step.id} className={cn("border-t", isDark ? "border-slate-700" : "border-gray-100")}>
-                <td className={cn("py-2.5 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{step.inputName}</td>
-                <td className={cn("py-2.5 px-2 text-center", isDark ? "text-slate-400" : "text-gray-500")}>{step.inputQuantity}</td>
-                <td className={cn("py-2.5 px-3 text-center", isDark ? "text-blue-400" : "text-blue-600")}>{step.processName}</td>
-                <td className={cn("py-2.5 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{step.outputName}</td>
-                <td className={cn("py-2.5 px-2 text-center", isDark ? "text-slate-400" : "text-gray-500")}>{step.outputQuantity}</td>
-                <td className="py-2.5 px-3 text-right">
+        <div className={cn("rounded-lg overflow-hidden", isDark ? "bg-slate-800" : "bg-white")}>
+          {filteredSteps.map((step, idx) => (
+            <div key={step.id} className={cn("p-4 border-t first:border-t-0", isDark ? idx === 0 ? "border-slate-700" : "border-slate-700" : idx === 0 ? "border-gray-200" : "border-gray-200")}>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* 原材料 */}
+                    <div className={cn("px-2 py-1 rounded text-sm", isDark ? "bg-slate-700" : "bg-gray-100")}>
+                      <span className={cn("font-medium", isDark ? "text-blue-400" : "text-blue-600")}>原料：</span>
+                      {step.inputs.map((input, i) => (
+                        <span key={i}>
+                          {input.quantity}×{input.name}{i < step.inputs.length - 1 ? ' + ' : ''}
+                        </span>
+                      ))}
+                    </div>
+                    {/* 箭头 */}
+                    <span className={cn("text-lg font-bold", isDark ? "text-yellow-400" : "text-yellow-600")}>→</span>
+                    {/* 产物 */}
+                    <div className={cn("px-2 py-1 rounded text-sm", isDark ? "bg-slate-700" : "bg-gray-100")}>
+                      <span className={cn("font-medium", isDark ? "text-green-400" : "text-green-600")}>产物：</span>
+                      {step.outputs.map((output, i) => (
+                        <span key={i}>
+                          {output.quantity}×{output.name}{i < step.outputs.length - 1 ? ' + ' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={cn("mt-1 text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
+                    工序：{step.processName}
+                  </div>
+                </div>
+                <div className="flex gap-1 ml-2">
                   <button onClick={() => handleEdit(step)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
                     <Edit2 size={15} />
                   </button>
                   <button onClick={() => handleDelete(step.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
                     <Trash2 size={15} />
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

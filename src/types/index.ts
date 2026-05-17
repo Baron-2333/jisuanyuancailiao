@@ -48,13 +48,16 @@ export interface RecipeConfig {
 }
 
 // 加工步骤类型
+export interface ProcessStepInput {
+  name: string;      // 原材料名称
+  quantity: number;  // 原材料数量
+}
+
 export interface ProcessStep {
   id: string;
-  inputName: string;      // 原材料名称
-  inputQuantity: number; // 原材料数量
-  processName: string;    // 加工步骤名称
-  outputName: string;     // 产物名称
-  outputQuantity: number; // 产物数量
+  inputs: ProcessStepInput[];  // 多种原材料
+  processName: string;          // 加工步骤名称
+  outputs: ProcessStepInput[];   // 多种产物
   createdAt: number;
 }
 
