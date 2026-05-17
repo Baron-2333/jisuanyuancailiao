@@ -139,7 +139,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 未登录 - 仅显示配方计算页面 */}
+      {/* 未登录 - 主界面（仅配方计算可用） */}
       {isLoggedIn === false && (
         <>
           {/* Header */}
@@ -150,10 +150,7 @@ export default function App() {
                 <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
               </div>
               <button
-                onClick={() => {
-                  setActiveTab('calculator');
-                  setShowLoginModal(true);
-                }}
+                onClick={() => setShowLoginModal(true)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
                   isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -165,7 +162,43 @@ export default function App() {
             </div>
           </header>
 
-          {/* 配方计算页面（唯一可访问的页面） */}
+          {/* Navigation Tabs - 未登录用户可见但部分禁用 */}
+          <nav className={cn("border-b sticky top-0 z-10 backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="flex gap-1">
+                {tabs.map(tab => {
+                  const isLocked = tab.id !== 'calculator';
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        if (isLocked) {
+                          setShowLoginModal(true);
+                        } else {
+                          setActiveTab(tab.id);
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center gap-2 px-5 py-4 text-base font-medium border-b-2 transition-colors',
+                        activeTab === tab.id
+                          ? isDark ? "border-blue-400 text-blue-400" : "border-blue-600 text-blue-600"
+                          : isLocked
+                            ? isDark ? "border-transparent text-slate-600 cursor-not-allowed" : "border-transparent text-gray-400 cursor-not-allowed"
+                            : isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-600 hover:text-gray-800"
+                      )}
+                      title={isLocked ? '登录后可访问' : tab.label}
+                    >
+                      {isLocked && <Lock size={16} className="opacity-50" />}
+                      <tab.icon size={20} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </nav>
+
+          {/* Content - 未登录只显示配方计算 */}
           <main className="max-w-6xl mx-auto px-4 py-6">
             <CalculatorView 
               materials={materials} 
@@ -283,28 +316,28 @@ export default function App() {
             </div>
           </header>
 
-      {/* Navigation Tabs */}
-      <nav className={cn("border-b sticky top-0 z-10 backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex gap-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'flex items-center gap-2 px-5 py-4 text-base font-medium border-b-2 transition-colors',
-                  activeTab === tab.id
-                    ? isDark ? "border-blue-400 text-blue-400" : "border-blue-600 text-blue-600"
-                    : isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-600 hover:text-gray-800"
-                )}
-              >
-                <tab.icon size={20} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
+          {/* Navigation Tabs */}
+          <nav className={cn("border-b sticky top-0 z-10 backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
+            <div className="max-w-6xl mx-auto px-4">
+              <div className="flex gap-1">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex items-center gap-2 px-5 py-4 text-base font-medium border-b-2 transition-colors',
+                      activeTab === tab.id
+                        ? isDark ? "border-blue-400 text-blue-400" : "border-blue-600 text-blue-600"
+                        : isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-600 hover:text-gray-800"
+                    )}
+                  >
+                    <tab.icon size={20} />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </nav>
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 py-6">
