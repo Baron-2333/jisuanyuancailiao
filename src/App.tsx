@@ -73,17 +73,17 @@ export default function App() {
   }, [recipes]);
 
   return (
-    <div className={cn("min-h-screen", isDark ? "bg-slate-900" : "bg-gray-50")}>
+    <div className={cn("min-h-screen", isDark ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" : "bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100")}>
       {/* Header */}
-      <header className={cn("shadow-sm border-b", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200")}>
+      <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
-          <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
+          <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
         </div>
       </header>
 
       {/* Navigation Tabs */}
-      <nav className={cn("border-b sticky top-0 z-10", isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200")}>
+      <nav className={cn("border-b sticky top-0 z-10 backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-1">
             {tabs.map(tab => (
@@ -91,13 +91,13 @@ export default function App() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                  'flex items-center gap-2 px-5 py-4 text-base font-medium border-b-2 transition-colors',
                   activeTab === tab.id
                     ? isDark ? "border-blue-400 text-blue-400" : "border-blue-600 text-blue-600"
                     : isDark ? "border-transparent text-slate-400 hover:text-white" : "border-transparent text-gray-600 hover:text-gray-800"
                 )}
               >
-                <tab.icon size={18} />
+                <tab.icon size={20} />
                 {tab.label}
               </button>
             ))}
@@ -289,7 +289,7 @@ function CalculatorView({ materials, recipes, savedCalc, onCalculated, onSave, i
     downloadCSV(csvContent, `原材料需求汇总_${Date.now()}.csv`);
   };
 
-  const cardClass = cn("rounded-lg p-5", isDark ? "bg-slate-800" : "bg-white shadow");
+  const cardClass = cn("rounded-xl p-6 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
 
   return (
     <div className="space-y-5">
@@ -602,41 +602,43 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
     setShowForm(false);
   };
 
-  const cardClass = cn("rounded-lg", isDark ? "bg-slate-800" : "bg-white shadow");
+  const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
 
   return (
     <div className="space-y-5">
       {/* 头部操作 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <input
-            type="text"
-            placeholder="搜索..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className={cn("px-3 py-2 rounded-lg text-sm", 
-              isDark ? "bg-slate-800 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+      <div className={cn("rounded-xl p-4 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="搜索..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className={cn("px-4 py-2.5 rounded-lg text-base", 
+                isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+              )}
+            />
+            <span className={cn("text-base", isDark ? "text-slate-400" : "text-gray-500")}>
+              {filteredMaterials.length} 个
+            </span>
+          </div>
+          <button
+            onClick={() => setShowForm(true)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
+              isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
             )}
-          />
-          <span className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
-            {filteredMaterials.length} 个
-          </span>
+          >
+            <Plus size={18} />
+            添加
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
-            isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
-          )}
-        >
-          <Plus size={16} />
-          添加
-        </button>
       </div>
 
       {/* 添加/编辑表单 */}
       {showForm && (
-        <div className={cn("rounded-lg p-5", cardClass)}>
+        <div className={cn("rounded-xl p-6 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
           <h3 className={cn("font-semibold mb-4", isDark ? "text-white" : "text-gray-800")}>
             {editingId ? '编辑原材料' : '添加新原材料'}
           </h3>
@@ -681,7 +683,7 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
       )}
 
       {/* 原材料列表 */}
-      <div className={cn("rounded-lg overflow-hidden", cardClass)}>
+      <div className={cn("rounded-xl overflow-hidden backdrop-blur-xl", cardClass)}>
         {filteredMaterials.length === 0 ? (
           <div className="p-10 text-center">
             <Package className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={40} />
@@ -844,27 +846,32 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
     }
   };
 
+  const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
+
   return (
-    <div className={cn("p-4", isDark ? "text-slate-200" : "text-gray-700")}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">加工步骤管理</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium", isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white")}
-        >
-          <Plus size={16} />
-          {showForm ? '取消' : '添加步骤'}
-        </button>
+    <div className={cn("space-y-5", isDark ? "text-slate-200" : "text-gray-700")}>
+      {/* 头部操作 */}
+      <div className={cn("rounded-xl p-4 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">加工步骤管理</h2>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-base font-medium", isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white")}
+          >
+            <Plus size={18} />
+            {showForm ? '取消' : '添加步骤'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className={cn("p-4 rounded-lg mb-4", isDark ? "bg-slate-800" : "bg-gray-100")}>
+        <form onSubmit={handleSubmit} className={cn("p-6 rounded-xl mb-4 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
           {/* 原材料输入 */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label className={cn("text-sm font-medium", isDark ? "text-slate-300" : "text-gray-700")}>原材料 (1-9种)</label>
+              <label className={cn("text-base font-medium", isDark ? "text-slate-300" : "text-gray-700")}>原材料 (1-9种)</label>
               {formData.inputs.length < 9 && (
-                <button type="button" onClick={addInput} className={cn("text-xs px-2 py-1 rounded", isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
+                <button type="button" onClick={addInput} className={cn("text-sm px-3 py-1.5 rounded", isDark ? "bg-slate-700/80 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
                   + 添加原材料
                 </button>
               )}
@@ -898,12 +905,12 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 
           {/* 加工步骤 */}
           <div className="mb-4">
-            <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>加工步骤</label>
+            <label className={cn("block text-base font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>加工步骤</label>
             <input
               type="text"
               value={formData.processName}
               onChange={e => setFormData({ ...formData, processName: e.target.value })}
-              className={cn("w-full px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+              className={cn("w-full px-4 py-2.5 rounded-lg border text-base", isDark ? "bg-slate-700/80 border-slate-600 text-white" : "bg-white border-gray-300")}
               placeholder="如：压制、熔炼、切割"
               required
             />
@@ -912,9 +919,9 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
           {/* 产物输出 */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label className={cn("text-sm font-medium", isDark ? "text-slate-300" : "text-gray-700")}>产物 (1-9种)</label>
+              <label className={cn("text-base font-medium", isDark ? "text-slate-300" : "text-gray-700")}>产物 (1-9种)</label>
               {formData.outputs.length < 9 && (
-                <button type="button" onClick={addOutput} className={cn("text-xs px-2 py-1 rounded", isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
+                <button type="button" onClick={addOutput} className={cn("text-sm px-3 py-1.5 rounded", isDark ? "bg-slate-700/80 hover:bg-slate-600 text-slate-300" : "bg-gray-200 hover:bg-gray-300 text-gray-600")}>
                   + 添加产物
                 </button>
               )}
@@ -926,7 +933,7 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
                     type="text"
                     value={output.name}
                     onChange={e => updateOutput(index, 'name', e.target.value)}
-                    className={cn("flex-1 px-3 py-2 rounded border text-sm", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    className={cn("flex-1 px-4 py-2.5 rounded-lg border text-base", isDark ? "bg-slate-700/80 border-slate-600 text-white" : "bg-white border-gray-300")}
                     placeholder={`产物${index + 1}名称`}
                   />
                   <input
@@ -934,11 +941,11 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
                     min="1"
                     value={output.quantity}
                     onChange={e => updateOutput(index, 'quantity', Number(e.target.value))}
-                    className={cn("w-20 px-2 py-2 rounded border text-sm text-center", isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-white border-gray-300")}
+                    className={cn("w-24 px-3 py-2.5 rounded-lg border text-base text-center", isDark ? "bg-slate-700/80 border-slate-600 text-white" : "bg-white border-gray-300")}
                   />
                   {formData.outputs.length > 1 && (
-                    <button type="button" onClick={() => removeOutput(index)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
-                      <X size={16} />
+                    <button type="button" onClick={() => removeOutput(index)} className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-500 hover:bg-red-100")}>
+                      <X size={18} />
                     </button>
                   )}
                 </div>
@@ -946,13 +953,13 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button type="submit" className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium", isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
-              <Save size={16} />
+          <div className="flex gap-2 mt-6">
+            <button type="submit" className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-base font-medium", isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-500 hover:bg-green-600 text-white")}>
+              <Save size={18} />
               {editingId ? '保存修改' : '确认添加'}
             </button>
-            <button type="button" onClick={resetForm} className={cn("flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium", isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-300 hover:bg-gray-400 text-gray-700")}>
-              <X size={16} />
+            <button type="button" onClick={resetForm} className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-base font-medium", isDark ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-gray-300 hover:bg-gray-400 text-gray-700")}>
+              <X size={18} />
               取消
             </button>
           </div>
@@ -964,25 +971,25 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
         placeholder="搜索..."
         value={searchTerm}
         onChange={e => setSearchTerm(e.target.value)}
-        className={cn("w-full px-4 py-2 rounded border mb-4 text-sm", isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-400" : "bg-white border-gray-300")}
+        className={cn("w-full px-4 py-2.5 rounded-xl border mb-4 text-base", isDark ? "bg-slate-800/60 backdrop-blur-sm border-slate-600 text-white placeholder-slate-400" : "bg-white/70 border-gray-300")}
       />
 
       {filteredSteps.length === 0 ? (
-        <div className={cn("text-center py-12 rounded-lg", isDark ? "bg-slate-800" : "bg-gray-100")}>
-          <Cog size={48} className={cn("mx-auto mb-2 opacity-30", isDark ? "text-slate-500" : "text-gray-400")} />
-          <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>
+        <div className={cn("text-center py-16 rounded-xl", cardClass)}>
+          <Cog size={56} className={cn("mx-auto mb-3 opacity-30", isDark ? "text-slate-500" : "text-gray-400")} />
+          <p className={cn("text-lg", isDark ? "text-slate-400" : "text-gray-500")}>
             {searchTerm ? '没有找到匹配的加工步骤' : '暂无加工步骤，点击上方按钮添加'}
           </p>
         </div>
       ) : (
-        <div className={cn("rounded-lg overflow-hidden", isDark ? "bg-slate-800" : "bg-white")}>
+        <div className={cn("rounded-xl overflow-hidden backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50")}>
           {filteredSteps.map((step, idx) => (
-            <div key={step.id} className={cn("p-4 border-t first:border-t-0", isDark ? idx === 0 ? "border-slate-700" : "border-slate-700" : idx === 0 ? "border-gray-200" : "border-gray-200")}>
+            <div key={step.id} className={cn("p-5 border-t first:border-t-0", isDark ? "border-slate-700/50" : "border-gray-200/50")}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-4 flex-wrap">
                     {/* 原材料 */}
-                    <div className={cn("px-2 py-1 rounded text-sm", isDark ? "bg-slate-700" : "bg-gray-100")}>
+                    <div className={cn("px-3 py-2 rounded-lg text-base", isDark ? "bg-slate-700/70" : "bg-gray-100")}>
                       <span className={cn("font-medium", isDark ? "text-blue-400" : "text-blue-600")}>原料：</span>
                       {step.inputs.map((input, i) => (
                         <span key={i}>
@@ -991,9 +998,9 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
                       ))}
                     </div>
                     {/* 箭头 */}
-                    <span className={cn("text-lg font-bold", isDark ? "text-yellow-400" : "text-yellow-600")}>→</span>
+                    <span className={cn("text-xl font-bold", isDark ? "text-yellow-400" : "text-yellow-600")}>→</span>
                     {/* 产物 */}
-                    <div className={cn("px-2 py-1 rounded text-sm", isDark ? "bg-slate-700" : "bg-gray-100")}>
+                    <div className={cn("px-3 py-2 rounded-lg text-base", isDark ? "bg-slate-700/70" : "bg-gray-100")}>
                       <span className={cn("font-medium", isDark ? "text-green-400" : "text-green-600")}>产物：</span>
                       {step.outputs.map((output, i) => (
                         <span key={i}>
@@ -1002,16 +1009,16 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
                       ))}
                     </div>
                   </div>
-                  <div className={cn("mt-1 text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
+                  <div className={cn("mt-2 text-base", isDark ? "text-slate-400" : "text-gray-500")}>
                     工序：{step.processName}
                   </div>
                 </div>
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => handleEdit(step)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
-                    <Edit2 size={15} />
+                <div className="flex gap-2 ml-3">
+                  <button onClick={() => handleEdit(step)} className={cn("p-2 rounded-lg", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                    <Edit2 size={18} />
                   </button>
-                  <button onClick={() => handleDelete(step.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
-                    <Trash2 size={15} />
+                  <button onClick={() => handleDelete(step.id)} className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>
@@ -1133,41 +1140,43 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
     setFormData({ ...formData, ingredients: newIngredients });
   };
 
-  const cardClass = cn("rounded-lg", isDark ? "bg-slate-800" : "bg-white shadow");
+  const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
 
   return (
     <div className="space-y-5">
       {/* 头部操作 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <input
-            type="text"
-            placeholder="搜索..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className={cn("px-3 py-2 rounded-lg text-sm", 
-              isDark ? "bg-slate-800 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+      <div className={cn("rounded-xl p-4 backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="搜索..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className={cn("px-4 py-2.5 rounded-lg text-base", 
+                isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+              )}
+            />
+            <span className={cn("text-base", isDark ? "text-slate-400" : "text-gray-500")}>
+              {filteredRecipes.length} 个
+            </span>
+          </div>
+          <button
+            onClick={() => setShowForm(true)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
+              isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
             )}
-          />
-          <span className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
-            {filteredRecipes.length} 个
-          </span>
+          >
+            <Plus size={18} />
+            添加
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
-            isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
-          )}
-        >
-          <Plus size={16} />
-          添加
-        </button>
       </div>
 
       {/* 添加/编辑表单 */}
       {showForm && (
-        <div className={cn("rounded-lg p-5", cardClass)}>
+        <div className={cn("rounded-xl p-6 backdrop-blur-xl", cardClass)}>
           <h3 className={cn("font-semibold mb-4", isDark ? "text-white" : "text-gray-800")}>
             {editingId ? '编辑配方' : '添加新配方'}
           </h3>
@@ -1277,35 +1286,35 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
       {/* 配方列表 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredRecipes.length === 0 ? (
-          <div className={cn("col-span-2 rounded-lg p-10 text-center", cardClass)}>
-            <BookOpen className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={40} />
-            <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>
+          <div className={cn("col-span-2 rounded-xl p-12 text-center backdrop-blur-xl", cardClass)}>
+            <BookOpen className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={48} />
+            <p className={cn("mt-4 text-lg", isDark ? "text-slate-400" : "text-gray-500")}>
               {searchTerm ? '没有找到' : '暂无配方'}
             </p>
           </div>
         ) : (
           filteredRecipes.map(recipe => (
-            <div key={recipe.id} className={cn("rounded-lg p-4", cardClass)}>
+            <div key={recipe.id} className={cn("rounded-xl p-5", cardClass)}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className={cn("font-semibold", isDark ? "text-white" : "text-gray-800")}>{recipe.name}</h3>
-                  <p className={cn("text-xs mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
+                  <h3 className={cn("text-lg font-semibold", isDark ? "text-white" : "text-gray-800")}>{recipe.name}</h3>
+                  <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                     {recipe.ingredients.length} 种原材料
                   </p>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => handleEdit(recipe)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
-                    <Edit2 size={14} />
+                <div className="flex gap-2">
+                  <button onClick={() => handleEdit(recipe)} className={cn("p-2 rounded-lg", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                    <Edit2 size={18} />
                   </button>
-                  <button onClick={() => handleDelete(recipe.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
-                    <Trash2 size={14} />
+                  <button onClick={() => handleDelete(recipe.id)} className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>
-              <div className={cn("mt-3 pt-3 border-t", isDark ? "border-slate-700" : "border-gray-100")}>
-                <div className="flex flex-wrap gap-1.5">
+              <div className={cn("mt-4 pt-4 border-t", isDark ? "border-slate-700/50" : "border-gray-100")}>
+                <div className="flex flex-wrap gap-2">
                   {recipe.ingredients.map((ing, idx) => (
-                    <span key={idx} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs", isDark ? "bg-slate-700 text-slate-300" : "bg-gray-100 text-gray-600")}>
+                    <span key={idx} className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm", isDark ? "bg-slate-700/70 text-slate-300" : "bg-gray-100 text-gray-600")}>
                       {ing.materialName} ×{ing.quantity}
                       <button
                         onClick={() => {
@@ -1361,15 +1370,15 @@ function HistoryView({ history, recipes, onHistoryChange, isDark }: {
     downloadCSV(csvContent, `原材料需求_${record.id}.csv`);
   };
 
-  const cardClass = cn("rounded-lg", isDark ? "bg-slate-800" : "bg-white shadow");
+  const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
 
   return (
     <div className="space-y-5">
       {/* 头部操作 */}
-      <div className="flex items-center justify-between">
+      <div className={cn("rounded-xl p-4 backdrop-blur-xl flex items-center justify-between", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg")}>
         <h2 className={cn("text-lg font-semibold", isDark ? "text-white" : "text-gray-800")}>
           计算历史 
-          <span className={cn("text-sm font-normal ml-2", isDark ? "text-slate-400" : "text-gray-500")}>
+          <span className={cn("text-base font-normal ml-2", isDark ? "text-slate-400" : "text-gray-500")}>
             {history.length} 条
           </span>
         </h2>
@@ -1377,11 +1386,11 @@ function HistoryView({ history, recipes, onHistoryChange, isDark }: {
           <button
             onClick={handleClearAll}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
               isDark ? "text-red-400 border border-red-400 hover:bg-slate-700" : "text-red-600 border border-red-600 hover:bg-red-50"
             )}
           >
-            <Trash2 size={16} />
+            <Trash2 size={18} />
             清空
           </button>
         )}
@@ -1389,9 +1398,9 @@ function HistoryView({ history, recipes, onHistoryChange, isDark }: {
 
       {/* 历史列表 */}
       {history.length === 0 ? (
-        <div className={cn("rounded-lg p-10 text-center", cardClass)}>
-          <History className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={40} />
-          <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>暂无历史记录</p>
+        <div className={cn("rounded-xl p-12 text-center backdrop-blur-xl", cardClass)}>
+          <History className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={48} />
+          <p className={cn("mt-4 text-lg", isDark ? "text-slate-400" : "text-gray-500")}>暂无历史记录</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1399,19 +1408,19 @@ function HistoryView({ history, recipes, onHistoryChange, isDark }: {
             <div
               key={record.id}
               className={cn(
-                'rounded-lg cursor-pointer transition-all',
+                'rounded-xl cursor-pointer transition-all',
                 cardClass,
                 selectedRecord === record.id && (isDark ? "ring-2 ring-blue-400" : "ring-2 ring-blue-500")
               )}
               onClick={() => setSelectedRecord(selectedRecord === record.id ? null : record.id)}
             >
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", isDark ? "bg-blue-500/20" : "bg-blue-100")}>
-                    <Calculator className={isDark ? "text-blue-400" : "text-blue-600"} size={18} />
+              <div className="p-5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={cn("p-3 rounded-xl", isDark ? "bg-blue-500/20" : "bg-blue-100")}>
+                    <Calculator className={isDark ? "text-blue-400" : "text-blue-600"} size={20} />
                   </div>
                   <div>
-                    <p className={cn("font-medium text-sm", isDark ? "text-white" : "text-gray-800")}>
+                    <p className={cn("font-medium text-base", isDark ? "text-white" : "text-gray-800")}>
                       [{record.summary}
                     </p>
                   </div>
@@ -1419,20 +1428,20 @@ function HistoryView({ history, recipes, onHistoryChange, isDark }: {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteItem(record.id); }}
-                    className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}
+                    className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}
                     title="删除"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleExport(record); }}
-                    className={cn("p-1.5 rounded", isDark ? "text-green-400 hover:bg-slate-700" : "text-green-600 hover:bg-green-50")}
+                    className={cn("p-2 rounded-lg", isDark ? "text-green-400 hover:bg-slate-700" : "text-green-600 hover:bg-green-50")}
                     title="导出"
                   >
-                    <Download size={16} />
+                    <Download size={18} />
                   </button>
                   <ChevronRight
-                    size={18}
+                    size={20}
                     className={cn(
                       'transition-transform',
                       selectedRecord === record.id ? "rotate-90" : "",
