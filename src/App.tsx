@@ -136,6 +136,7 @@ export default function App() {
           <RecipesView 
             materials={materials}
             recipes={recipes}
+            processSteps={processSteps}
             onRecipesChange={refreshData}
             isDark={isDark}
           />
@@ -1031,9 +1032,10 @@ function ProcessStepsView({ materials, processSteps, onProcessStepsChange, isDar
 }
 
 // ============ 配方管理视图 ============
-function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
+function RecipesView({ materials, recipes, processSteps, onRecipesChange, isDark }: {
   materials: Material[];
   recipes: Recipe[];
+  processSteps?: ProcessStep[];
   onRecipesChange: () => void;
   isDark: boolean;
 }) {
@@ -1046,6 +1048,32 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
   });
   const [searchTerm, setSearchTerm] = useState('');
 
+  // 获取所有可用的目标材料（原材料 + 加工步骤产物）
+  const getAllTargetMaterials = useCallback(() => {
+    const targets: { id: string; name: string; type: 'raw' | 'processed' }[] = [];
+    
+    // 添加原材料
+    materials.forEach(m => {
+      targets.push({ id: m.id, name: m.name, type: 'raw' });
+    });
+    
+    // 添加加工步骤的产物（去重）
+    if (processSteps) {
+      const processedNames = new Set<string>();
+      processSteps.forEach(step => {
+        step.outputs.forEach(output => {
+          if (output.name.trim() && !processedNames.has(output.name.trim())) {
+            processedNames.add(output.name.trim());
+            // 产物名称作为 ID（添加前缀避免与原材料 ID 冲突）
+            targets.push({ id: `processed:${output.name.trim()}`, name: output.name.trim(), type: 'processed' });
+          }
+        });
+      });
+    }
+    
+    return targets;
+  }, [materials, processSteps]);
+
   const filteredRecipes = recipes.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -1056,10 +1084,21 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
 
     const validIngredients = formData.ingredients
       .filter(ing => ing.materialId && ing.quantity > 0)
-      .map(ing => ({
-        ...ing,
-        materialName: materials.find(m => m.id === ing.materialId)?.name || '',
-      }));
+      .map(ing => {
+        // 检查是否是加工产物
+        if (ing.materialId.startsWith('processed:')) {
+          const processedName = ing.materialId.replace('processed:', '');
+          return {
+            ...ing,
+            materialId: ing.materialId,
+            materialName: processedName,
+          };
+        }
+        return {
+          ...ing,
+          materialName: materials.find(m => m.id === ing.materialId)?.name || '',
+        };
+      });
 
     if (validIngredients.length === 0) return;
 
@@ -1107,6 +1146,14 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
     });
     setEditingId(recipe.id);
     setShowForm(true);
+  };
+
+  // 获取目标材料名称（用于显示）
+  const getIngredientDisplayName = (ingredient: { materialId: string; materialName: string }): string => {
+    if (ingredient.materialId.startsWith('processed:')) {
+      return ingredient.materialName + ' [加工产物]';
+    }
+    return ingredient.materialName;
   };
 
   const handleDelete = (id: string) => {
@@ -1211,41 +1258,58 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
 
             {/* 原材料列表 */}
             <div className="space-y-2">
-              {formData.ingredients.map((ing, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <select
-                    value={ing.materialId}
-                    onChange={e => updateIngredient(index, 'materialId', e.target.value)}
-                    className={cn("flex-1 px-3 py-2 rounded-lg text-sm", 
-                      isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                    )}
-                  >
-                    <option value="">选择原材料...</option>
-                    {materials.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                  <span className={isDark ? "text-slate-400" : "text-gray-400"}>×</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={ing.quantity}
-                    onChange={e => updateIngredient(index, 'quantity', parseInt(e.target.value) || 1)}
-                    className={cn("w-16 px-2 py-2 rounded-lg text-sm text-center", 
-                      isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                    )}
-                  />
-                  {formData.ingredients.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeIngredient(index)}
-                      className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}
+              {formData.ingredients.map((ing, index) => {
+                const allTargets = getAllTargetMaterials();
+                const rawMaterials = allTargets.filter(t => t.type === 'raw');
+                const processedMaterials = allTargets.filter(t => t.type === 'processed');
+                
+                return (
+                  <div key={index} className="flex gap-2 items-center">
+                    <select
+                      value={ing.materialId}
+                      onChange={e => updateIngredient(index, 'materialId', e.target.value)}
+                      className={cn("flex-1 px-3 py-2 rounded-lg text-sm", 
+                        isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                      )}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+                      <option value="">选择原材料...</option>
+                      {rawMaterials.length > 0 && (
+                        <optgroup label="基础材料">
+                          {rawMaterials.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {processedMaterials.length > 0 && (
+                        <optgroup label="加工产物">
+                          {processedMaterials.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <span className={isDark ? "text-slate-400" : "text-gray-400"}>×</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={ing.quantity}
+                      onChange={e => updateIngredient(index, 'quantity', parseInt(e.target.value) || 1)}
+                      className={cn("w-16 px-2 py-2 rounded-lg text-sm text-center", 
+                        isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                      )}
+                    />
+                    {formData.ingredients.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(index)}
+                        className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               {formData.ingredients.length < 9 && (
                 <button
                   type="button"
