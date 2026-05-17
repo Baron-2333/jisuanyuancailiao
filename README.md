@@ -2,11 +2,6 @@
 
 工业配方材料需求计算系统 v0.0.37
 
-## 在线访问
-
-- **GitHub Pages**: https://baron-2333.github.io/jisuanyuancailiao/
-- **腾讯云**: https://yuancailiao-d2gmuijr515f0420a-1259575711.tcloudbaseapp.com/
-
 ## 功能概览
 
 ### 1. 配方计算（核心功能）
