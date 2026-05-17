@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, Sun, Moon, Cog, LogOut, Loader2 } from 'lucide-react';
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, getSavedCalculation, saveCalculation, removeIngredientFromRecipe, getProcessSteps, addProcessStep, updateProcessStep, deleteProcessStep } from './utils/storage';
 import { performCalculation, exportToCSV, downloadCSV, calculateRequirements, TargetConfig, calculateExpandedRequirements, ExpandedRequirement } from './utils/calculator';
 import { Material, Recipe, CalculationHistory, MaterialRequirement, RecipeIngredient, ProcessStep } from './types';
+import { loginWithEmail, logout, getCurrentUser } from './utils/auth';
 
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'processes' | 'recipes' | 'history';
@@ -41,16 +42,63 @@ export default function App() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [history, setHistory] = useState<CalculationHistory[]>([]);
   const [savedCalc, setSavedCalc] = useState<SavedCalculation | null>(null);
+  
+  // 登录状态
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = 加载中
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // 检查登录状态
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const user = await getCurrentUser();
+      setIsLoggedIn(!!user);
+    } catch (e) {
+      setIsLoggedIn(false);
+    }
+  };
+
+  // 登录处理
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setLoginLoading(true);
+    
+    const result = await loginWithEmail(loginEmail, loginPassword);
+    
+    if (result.success) {
+      setIsLoggedIn(true);
+      setLoginEmail('');
+      setLoginPassword('');
+    } else {
+      setLoginError(result.error || '登录失败');
+    }
+    setLoginLoading(false);
+  };
+
+  // 登出处理
+  const handleLogout = async () => {
+    await logout();
+    setIsLoggedIn(false);
+  };
 
   // 加载数据
   useEffect(() => {
-    setMaterials(getMaterials());
-    setProcessSteps(getProcessSteps());
-    setRecipes(getRecipes());
-    setHistory(getHistory());
-    const saved = getSavedCalculation();
-    if (saved) setSavedCalc(saved);
-  }, []);
+    if (isLoggedIn) {
+      setMaterials(getMaterials());
+      setProcessSteps(getProcessSteps());
+      setRecipes(getRecipes());
+      setHistory(getHistory());
+      const saved = getSavedCalculation();
+      if (saved) setSavedCalc(saved);
+    }
+  }, [isLoggedIn]);
 
   // 刷新数据
   const refreshData = useCallback(() => {
@@ -74,13 +122,107 @@ export default function App() {
 
   return (
     <div className={cn("min-h-screen", isDark ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" : "bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100")}>
-      {/* Header */}
-      <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
-          <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
+      {/* 加载中 */}
+      {isLoggedIn === null && (
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="animate-spin text-blue-500" size={48} />
         </div>
-      </header>
+      )}
+
+      {/* 未登录 - 登录页面 */}
+      {isLoggedIn === false && (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className={cn("w-full max-w-md rounded-2xl p-8 backdrop-blur-xl", isDark ? "bg-slate-800/80 border border-slate-700/50" : "bg-white/80 border border-gray-200/50 shadow-xl")}>
+            <div className="text-center mb-8">
+              <Calculator className={cn("mx-auto mb-4", isDark ? "text-blue-400" : "text-blue-600")} size={56} />
+              <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
+              <p className={cn("mt-2", isDark ? "text-slate-400" : "text-gray-500")}>请登录以继续使用</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                  邮箱
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={loginEmail}
+                  onChange={e => setLoginEmail(e.target.value)}
+                  className={cn("w-full px-4 py-3 rounded-lg text-base", 
+                    isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+                  )}
+                  placeholder="请输入邮箱"
+                  disabled={loginLoading}
+                />
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", isDark ? "text-slate-300" : "text-gray-700")}>
+                  密码
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={e => setLoginPassword(e.target.value)}
+                  className={cn("w-full px-4 py-3 rounded-lg text-base", 
+                    isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+                  )}
+                  placeholder="请输入密码"
+                  disabled={loginLoading}
+                />
+              </div>
+
+              {loginError && (
+                <div className={cn("p-3 rounded-lg text-sm text-center", isDark ? "bg-red-900/50 text-red-300" : "bg-red-50 text-red-600")}>
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className={cn(
+                  "w-full py-3 rounded-lg text-base font-medium flex items-center justify-center gap-2",
+                  isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white",
+                  loginLoading && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {loginLoading && <Loader2 className="animate-spin" size={20} />}
+                {loginLoading ? '登录中...' : '登录'}
+              </button>
+            </form>
+
+            <p className={cn("text-center text-sm mt-6", isDark ? "text-slate-500" : "text-gray-400")}>
+              账号由管理员分配，请联系获取登录权限
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 已登录 - 主界面 */}
+      {isLoggedIn === true && (
+        <>
+          {/* Header */}
+          <header className={cn("shadow-sm border-b backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
+            <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+              <div>
+                <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>原材料计算器</h1>
+                <p className={cn("text-base mt-1", isDark ? "text-slate-400" : "text-gray-500")}>工业配方材料需求计算系统</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                  isDark ? "bg-slate-700/80 hover:bg-slate-600 text-slate-300" : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                )}
+              >
+                <LogOut size={16} />
+                退出登录
+              </button>
+            </div>
+          </header>
 
       {/* Navigation Tabs */}
       <nav className={cn("border-b sticky top-0 z-10 backdrop-blur-xl", isDark ? "bg-slate-900/70 border-slate-700/50" : "bg-white/70 border-gray-200/50")}>
@@ -150,6 +292,8 @@ export default function App() {
           />
         )}
       </main>
+        </>
+      )}
     </div>
   );
 }
