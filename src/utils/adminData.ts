@@ -6,27 +6,21 @@ import { Material, Recipe } from '../types';
  */
 export async function getUserDataFromDB(userId: string): Promise<{ materials: Material[]; recipes: Recipe[] }> {
   try {
-    console.log('[DEBUG] getUserDataFromDB 开始查询, userId:', userId);
-    
     // 先尝试获取用户自己的数据
     const { data: ownSettings, error: ownError } = await supabase
       .from('user_settings')
       .select('setting_key, setting_value')
       .eq('user_id', userId);
 
-    console.log('[DEBUG] 查询结果:', { ownSettings, ownError });
-
     let materials: Material[] = [];
     let recipes: Recipe[] = [];
 
     // 如果获取到数据，处理它
     if (ownSettings && ownSettings.length > 0) {
-      console.log('[DEBUG] 找到', ownSettings.length, '条记录');
       for (const row of ownSettings) {
         if (row.setting_key === 'materials' && row.setting_value) {
           try {
             materials = JSON.parse(row.setting_value);
-            console.log('[DEBUG] materials 解析后数量:', materials.length);
           } catch (e) {
             console.error('解析 materials 失败:', e);
           }
@@ -34,7 +28,6 @@ export async function getUserDataFromDB(userId: string): Promise<{ materials: Ma
         if (row.setting_key === 'recipes' && row.setting_value) {
           try {
             recipes = JSON.parse(row.setting_value);
-            console.log('[DEBUG] recipes 解析后数量:', recipes.length);
           } catch (e) {
             console.error('解析 recipes 失败:', e);
           }
@@ -43,15 +36,11 @@ export async function getUserDataFromDB(userId: string): Promise<{ materials: Ma
       
       // 如果用户有自己的数据，直接返回
       if (materials.length > 0 || recipes.length > 0) {
-        console.log('[DEBUG] 返回用户自己的数据');
         return { materials, recipes };
       }
-    } else {
-      console.log('[DEBUG] 未找到用户数据或记录为空');
     }
 
     // 如果用户没有数据，尝试获取 admin 数据
-    console.log('[DEBUG] 回退到 admin 数据');
     const adminData = await getAdminData();
     return adminData;
   } catch (e) {

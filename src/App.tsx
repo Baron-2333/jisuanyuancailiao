@@ -737,10 +737,23 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }
     ingredients: [{ materialName: '', quantity: 1 }] as { materialName: string; quantity: number }[],
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterMaterial, setFilterMaterial] = useState(''); // 按材料筛选
 
-  const filteredRecipes = recipes.filter(r => 
-    r.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // 获取所有可用的材料列表（用于筛选）
+  const allMaterials = materials.filter(m => 
+    recipes.some(r => r.ingredients.some(ing => ing.materialName === m.name))
   );
+
+  // 筛选配方
+  const filteredRecipes = recipes.filter(r => {
+    // 按名称搜索
+    const nameMatch = r.name.toLowerCase().includes(searchTerm.toLowerCase());
+    // 按材料筛选
+    const materialMatch = !filterMaterial || r.ingredients.some(
+      ing => ing.materialName === filterMaterial
+    );
+    return nameMatch && materialMatch;
+  });
 
   // 快速创建物品
   const quickCreateMaterial = (name: string, isRaw: boolean = false) => {
@@ -871,20 +884,40 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }
   return (
     <div className="space-y-5">
       <div className={cn("rounded-xl p-4", cardClass)}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="text"
-              placeholder="搜索..."
+              placeholder="搜索配方..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className={cn("px-4 py-2.5 rounded-lg text-base", 
                 isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
               )}
             />
+            <select
+              value={filterMaterial}
+              onChange={e => setFilterMaterial(e.target.value)}
+              className={cn("px-4 py-2.5 rounded-lg text-base", 
+                isDark ? "bg-slate-700/80 text-white border-slate-600" : "border border-gray-300"
+              )}
+            >
+              <option value="">全部材料</option>
+              {allMaterials.map(m => (
+                <option key={m.id} value={m.name}>{m.name}</option>
+              ))}
+            </select>
             <span className={cn("text-base", isDark ? "text-slate-400" : "text-gray-500")}>
-              {filteredRecipes.length} 个
+              {filteredRecipes.length} 个配方
             </span>
+            {filterMaterial && (
+              <button
+                onClick={() => setFilterMaterial('')}
+                className={cn("text-sm px-2 py-1 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}
+              >
+                清除筛选
+              </button>
+            )}
           </div>
           <button
             onClick={() => setShowForm(true)}

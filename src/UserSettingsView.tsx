@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Trash2, Edit2, Save, X, Loader2, LogIn, LogOut, User, Shield, Users, Crown } from 'lucide-react';
+import { Settings, Plus, Trash2, Edit2, Save, X, Loader2, LogIn, LogOut, User, Shield, Users, Crown, Download, Upload } from 'lucide-react';
 import { cn } from './utils/utils';
 import { supabase } from './utils/supabase';
 import { 
@@ -16,6 +16,8 @@ import {
   getUserSettingsById,
   initUserMeta 
 } from './utils/adminUtils';
+import { getMaterials, getRecipes, saveMaterials, saveRecipes } from './utils/storage';
+import { Material, Recipe } from './types';
 
 interface UserSettingsViewProps {
   isDark: boolean;
@@ -45,6 +47,10 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  
+  // 备份恢复状态
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   // 检查登录状态
   useEffect(() => {
@@ -242,6 +248,87 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
     setNewKey('');
     setNewValue('');
     setShowAddForm(false);
+  };
+
+  // ============ 备份恢复功能 ============
+  
+  // 导出数据为 JSON 文件
+  const handleExportBackup = () => {
+    setBackupLoading(true);
+    try {
+      const materials = getMaterials();
+      const recipes = getRecipes();
+      
+      const backupData = {
+        version: '1.0',
+        exportTime: new Date().toISOString(),
+        materials,
+        recipes,
+      };
+      
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `minecraft-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      alert('备份导出成功！');
+    } catch (err) {
+      console.error('导出失败:', err);
+      alert('导出失败，请重试');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+  
+  // 从 JSON 文件恢复数据
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) {
+      e.target.value = '';
+      return;
+    }
+    
+    setRestoreLoading(true);
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+        
+        // 验证数据格式
+        if (!data.materials || !data.recipes) {
+          throw new Error('无效的备份文件格式');
+        }
+        
+        // 保存到 localStorage
+        saveMaterials(data.materials);
+        saveRecipes(data.recipes);
+        
+        alert('数据恢复成功！请刷新页面查看最新数据。');
+        e.target.value = '';
+      } catch (err) {
+        console.error('导入失败:', err);
+        alert('导入失败：' + (err instanceof Error ? err.message : '无效的备份文件'));
+      } finally {
+        setRestoreLoading(false);
+      }
+    };
+    
+    reader.onerror = () => {
+      alert('读取文件失败');
+      setRestoreLoading(false);
+      e.target.value = '';
+    };
+    
+    reader.readAsText(file);
   };
 
   // ============ 管理员功能 ============
@@ -547,23 +634,52 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
       {isLoggedIn && !adminMode && (
         <>
           <div className={cn("rounded-xl p-4", cardClass)}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className={cn("text-lg font-semibold", isDark ? "text-white" : "text-gray-800")}>
                 用户设置
                 <span className={cn("text-sm font-normal ml-2", isDark ? "text-slate-400" : "text-gray-500")}>
                   {settings.length} 项
                 </span>
               </h2>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
-                  isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
-                )}
-              >
-                <Plus size={16} />
-                添加设置
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleExportBackup}
+                  disabled={backupLoading}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
+                    isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/30" : "bg-green-100 text-green-600 border border-green-200 hover:bg-green-200"
+                  )}
+                >
+                  {backupLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  导出备份
+                </button>
+                <label
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm cursor-pointer",
+                    isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/50 hover:bg-blue-500/30" : "bg-blue-100 text-blue-600 border border-blue-200 hover:bg-blue-200"
+                  )}
+                >
+                  {restoreLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  导入恢复
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportBackup}
+                    disabled={restoreLoading}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
+                    isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
+                  )}
+                >
+                  <Plus size={14} />
+                  添加设置
+                </button>
+              </div>
             </div>
           </div>
 
