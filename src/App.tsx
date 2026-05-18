@@ -51,7 +51,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.6</span>
+                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.7</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                 本网站的代码100%由AI生成
@@ -326,25 +326,38 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                 </tr>
               </thead>
               <tbody>
-                {expandedResults.map((req) => (
-                  <tr key={req.materialId} className={cn("border-b", isDark ? "border-slate-700" : "border-gray-100")}>
-                    <td className={cn("py-2 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>
-                      {req.materialName}
-                    </td>
-                    <td className={cn("py-2 px-3 text-right font-semibold", 
-                      req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
-                    )}>
-                      {req.totalQuantity}
-                    </td>
-                    <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
-                      {req.usageDetails?.map((usage, idx) => (
-                        <div key={idx}>
-                          {usage.qty}个用于制作 {usage.forItem}×{usage.forQty}
-                        </div>
-                      ))}
-                    </td>
-                  </tr>
-                ))}
+                {expandedResults.map((req) => {
+                  // 生成简化用途说明
+                  const usageTexts = req.usageDetails?.map((usage, idx) => {
+                    if (usage.forItem === req.materialName) {
+                      // 自我合成，显示"直接需要"
+                      return null;
+                    }
+                    if (idx === 0) {
+                      return `其中${usage.qty}个做${usage.forQty}个${usage.forItem}`;
+                    }
+                    return `，${usage.qty}个做${usage.forQty}个${usage.forItem}`;
+                  }).filter(Boolean).join('');
+                  
+                  return (
+                    <tr key={req.materialId} className={cn("border-b", isDark ? "border-slate-700" : "border-gray-100")}>
+                      <td className={cn("py-2 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>
+                        {req.materialName}
+                      </td>
+                      <td className={cn("py-2 px-3 text-right", 
+                        req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
+                      )}>
+                        <span className="font-semibold">{req.totalQuantity}</span>
+                        <span className={cn("ml-1 text-xs", isDark ? "text-slate-500" : "text-gray-400")}>
+                          ({req.usageDetails?.[0]?.qty || 0})
+                        </span>
+                      </td>
+                      <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
+                        {usageTexts || '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
