@@ -444,8 +444,8 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
                         <span className="font-semibold">
-                          {req.totalQuantity > 64 ? (
-                            <>1组+{req.totalQuantity - 64}</>
+                          {req.totalQuantity >= 64 ? (
+                            <>{Math.floor(req.totalQuantity / 64)}组+{req.totalQuantity % 64}</>
                           ) : (
                             req.totalQuantity
                           )}
