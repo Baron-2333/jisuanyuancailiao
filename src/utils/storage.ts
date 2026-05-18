@@ -29,19 +29,34 @@ async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | R
     if (!userId) return;
 
     const settingKey = key === 'MATERIALS' ? 'materials' : 'recipes';
-    const { error } = await supabase
+    
+    // 先尝试 UPDATE
+    const { error: updateError } = await supabase
       .from('user_settings')
-      .upsert({
-        user_id: userId,
-        setting_key: settingKey,
+      .update({
         setting_value: JSON.stringify(data),
         updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,setting_key',
-      });
+      })
+      .eq('user_id', userId)
+      .eq('setting_key', settingKey);
 
-    if (error) {
-      console.error(`同步 ${key} 到 Supabase 失败:`, error.message, 'code:', error.code, 'details:', error.details);
+    if (updateError) {
+      console.error(`UPDATE ${key} 失败:`, updateError.message);
+      // 如果 UPDATE 影响 0 行，尝试 INSERT
+      if (updateError.code === 'PGRST116') {
+        const { error: insertError } = await supabase
+          .from('user_settings')
+          .insert({
+            user_id: userId,
+            setting_key: settingKey,
+            setting_value: JSON.stringify(data),
+            is_admin: false,
+          });
+        
+        if (insertError) {
+          console.error(`INSERT ${key} 失败:`, insertError.message);
+        }
+      }
     }
   } catch (e) {
     console.error('同步到 Supabase 异常:', e);
