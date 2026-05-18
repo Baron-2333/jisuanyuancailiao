@@ -217,9 +217,8 @@ export function CalculatorView({ materials, recipes, onCalculated }: CalculatorV
                           // 如果有完整的产物链文本，直接显示
                           if (usage.chainText) {
                             return (
-                              <div key={idx} className="mb-1">
-                                <span className="font-bold text-red-400">其中{usage.qty}个</span>
-                                <span className="text-green-400">{usage.chainText}</span>
+                              <div key={idx} className="mb-1 text-green-400">
+                                {usage.chainText}
                               </div>
                             );
                           }

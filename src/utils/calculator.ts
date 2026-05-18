@@ -160,21 +160,25 @@ function calculateForItem(
 
 /**
  * 格式化产物链为展示文本
+ * 格式：X个原材料 → 做成X个中间产物1 → 做成X个中间产物2
  */
-function formatChainPath(path: ChainNode[], craftChain: CraftChain): string {
-  if (path.length <= 1) return '';
+function formatChainPath(path: ChainNode[]): string {
+  if (path.length < 2) return '';
   
-  // 从原材料到最终产物的完整路径
-  // path: [原材料, 中间产物1, 中间产物2, ..., 最终产物]
-  // 需要展示：→做成X个中间产物1→做成X个中间产物2...→做成X个最终产物
+  // path 是从中间产物到原材料的方向记录的，需要反转
+  // 原始 path: [{木板,60}, {原木,15}]
+  // 反转后:   [{原木,15}, {木板,60}]
+  // 显示:     15个原木 → 做成60个木板
   
-  const parts: string[] = [];
-  for (let i = 1; i < path.length; i++) {
-    const node = path[i];
-    parts.push(`做成${node.qty}个${node.name}`);
+  const reversedPath = [...path].reverse();
+  
+  let text = `${reversedPath[0].qty}个${reversedPath[0].name}`;
+  
+  for (let i = 1; i < reversedPath.length; i++) {
+    text += ` → 做成${reversedPath[i].qty}个${reversedPath[i].name}`;
   }
   
-  return parts.length > 0 ? '（' + parts.join('→') + '）' : '';
+  return text;
 }
 
 /**
@@ -270,7 +274,7 @@ export function performCalculation(
       
       for (const [, info] of pathMap) {
         const { totalQty, chain } = info;
-        const chainText = formatChainPath(chain.path, chain);
+        const chainText = formatChainPath(chain.path);
         
         usageDetails.push({
           forItem: finalItem,
