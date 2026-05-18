@@ -340,6 +340,16 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
         <div className="space-y-3">
           {targets.map((target, index) => {
             const recipe = recipes.find(r => r.id === target.recipeId);
+            const [inputValue, setInputValue] = useState(recipe?.name || '');
+            const [showDropdown, setShowDropdown] = useState(false);
+            
+            // 根据输入过滤匹配的配方
+            const filteredRecipes = inputValue.length > 0 
+              ? recipes.filter(r => 
+                  r.name.toLowerCase().includes(inputValue.toLowerCase()) ||
+                  (r.pinyin && r.pinyin.toLowerCase().includes(inputValue.toLowerCase()))
+                ).slice(0, 8) // 最多显示8个
+              : [];
             
             return (
               <div key={target.id}>
@@ -347,19 +357,14 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                   <div className="flex items-center gap-2 text-slate-400 w-8">
                     <span className="font-medium text-sm">{index + 1}.</span>
                   </div>
-                  <div className="flex-1">
-                    {/* datalist 用于拼音搜索联想，value包含名称和拼音首字母 */}
-                    <datalist id={`recipes-list-${target.id}`}>
-                      {recipes.map(recipe => (
-                        <option key={recipe.id} value={`${recipe.name} ${recipe.pinyin}`} />
-                      ))}
-                    </datalist>
+                  <div className="flex-1 relative">
                     <input
                       type="text"
-                      list={`recipes-list-${target.id}`}
-                      placeholder="输入配方名称或拼音首字母搜索..."
-                      defaultValue={recipes.find(r => r.id === target.recipeId)?.name || ''}
+                      placeholder="输入配方名称或拼音首字母..."
+                      value={inputValue}
                       onChange={e => {
+                        setInputValue(e.target.value);
+                        setShowDropdown(true);
                         // 查找匹配的配方
                         const searchText = e.target.value.toLowerCase();
                         const matched = recipes.find(r => 
@@ -368,14 +373,39 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                         );
                         if (matched) {
                           updateTarget(target.id, 'recipeId', matched.id);
-                        } else if (e.target.value === '') {
+                        } else {
                           updateTarget(target.id, 'recipeId', '');
                         }
                       }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                       className={cn("w-full px-3 py-2 rounded-lg text-sm", 
                         isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300"
                       )}
                     />
+                    {/* 自定义下拉联想菜单 */}
+                    {showDropdown && filteredRecipes.length > 0 && (
+                      <div className={cn("absolute z-50 w-full mt-1 rounded-lg shadow-lg border overflow-hidden", 
+                        isDark ? "bg-slate-700 border-slate-600" : "bg-white border-gray-200"
+                      )}>
+                        {filteredRecipes.map(r => (
+                          <button
+                            key={r.id}
+                            onClick={() => {
+                              setInputValue(r.name);
+                              setShowDropdown(false);
+                              updateTarget(target.id, 'recipeId', r.id);
+                            }}
+                            className={cn("w-full px-3 py-2 text-left text-sm hover:bg-slate-600 transition-colors",
+                              isDark ? "text-white" : "text-gray-800",
+                              r.id === target.recipeId && (isDark ? "bg-slate-600" : "bg-blue-50")
+                            )}
+                          >
+                            {r.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="w-20">
                     <input
