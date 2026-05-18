@@ -90,7 +90,31 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
     setAuthError(null);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        // 如果账号未确认，尝试重新注册（更新为已确认状态）
+        if (error.message?.includes('Email not confirmed')) {
+          const { error: signupErr } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { confirmed: true } }
+          });
+          if (!signupErr || signupErr.message?.includes('already')) {
+            // 重新尝试登录
+            const { data: retryData, error: retryErr } = await supabase.auth.signInWithPassword({ email, password });
+            if (retryErr) throw retryErr;
+            if (retryData.user) {
+              setUserId(retryData.user.id);
+              setIsLoggedIn(true);
+              await initUserMeta(retryData.user.id, email);
+              const type = await getUserType(retryData.user.id);
+              setUserType(type);
+              setAuthLoading(false);
+              return;
+            }
+          }
+        }
+        throw error;
+      }
       if (data.user) {
         setUserId(data.user.id);
         setIsLoggedIn(true);
@@ -114,8 +138,19 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { confirmed: true } }
+      });
+      if (error) {
+        // 如果账号已存在，直接尝试登录
+        if (error.message?.includes('already')) {
+          await handleLogin(email, password);
+          return;
+        }
+        throw error;
+      }
       if (data.user) {
         setUserId(data.user.id);
         setIsLoggedIn(true);
@@ -123,7 +158,9 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
         // 初始化用户元数据
         await initUserMeta(data.user.id, email);
         
-        alert('注册成功！请查看邮箱验证链接。');
+        // 获取用户类型
+        const type = await getUserType(data.user.id);
+        setUserType(type);
       }
     } catch (err: any) {
       setAuthError(err.message || '注册失败');
