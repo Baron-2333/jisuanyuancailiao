@@ -1311,72 +1311,7 @@ function ProcessesView({ processes, onProcessesChange, isDark, isReadOnly }: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
-                  名称
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
-                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                  )}
-                  placeholder="如：高炉熔炼"
-                />
-              </div>
-              <div>
-                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
-                  加工步骤
-                </label>
-                <input
-                  type="text"
-                  value={formData.processStep}
-                  onChange={e => setFormData({ ...formData, processStep: e.target.value })}
-                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
-                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                  )}
-                  placeholder="如：高温处理"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
-                  输入材料
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.inputName}
-                  onChange={e => setFormData({ ...formData, inputName: e.target.value })}
-                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
-                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                  )}
-                  placeholder="输入材料名称"
-                />
-              </div>
-              <div>
-                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
-                  输入数量
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={formData.inputQuantity}
-                  onChange={e => setFormData({ ...formData, inputQuantity: parseInt(e.target.value) || 1 })}
-                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
-                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
-                  产物
+                  产物名称
                 </label>
                 <input
                   type="text"
@@ -1404,6 +1339,71 @@ function ProcessesView({ processes, onProcessesChange, isDark, isReadOnly }: {
                   )}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                加工步骤
+              </label>
+              <input
+                type="text"
+                value={formData.processStep}
+                onChange={e => setFormData({ ...formData, processStep: e.target.value })}
+                className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                  isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                )}
+                placeholder="如：高温处理"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  原材料名称
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.inputName}
+                  onChange={e => setFormData({ ...formData, inputName: e.target.value })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                  placeholder="原材料名称"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  原材料数量
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={formData.inputQuantity}
+                  onChange={e => setFormData({ ...formData, inputQuantity: parseInt(e.target.value) || 1 })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* 名称 */}
+            <div>
+              <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                名称
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                  isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                )}
+                placeholder="如：高炉熔炼"
+              />
             </div>
 
             {/* 追溯开关 */}
