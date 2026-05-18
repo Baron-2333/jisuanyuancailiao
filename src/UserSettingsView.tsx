@@ -1,29 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Trash2, Edit2, Save, X, Loader2, LogIn, LogOut, User } from 'lucide-react';
+import { Settings, Plus, Trash2, Edit2, Save, X, Loader2, LogIn, LogOut, User, Shield, Users, Crown } from 'lucide-react';
 import { cn } from './utils/utils';
-import { supabase, getCurrentUserId } from './utils/supabase';
+import { supabase } from './utils/supabase';
 import { 
   UserSetting, 
   getUserSettings, 
-  getUserSetting, 
   upsertUserSetting, 
   deleteUserSetting 
 } from './utils/userSettings';
-
-// Tab类型
-type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
-
-// Tab配置
-export const tabs = [
-  { id: 'calculator' as TabType, label: '配方计算', icon: Settings }, // placeholder
-  { id: 'materials' as TabType, label: '物品管理', icon: Settings }, // placeholder
-  { id: 'recipes' as TabType, label: '配方管理', icon: Settings }, // placeholder
-  { id: 'history' as TabType, label: '历史记录', icon: Settings }, // placeholder
-  { id: 'settings' as TabType, label: '用户设置', icon: Settings },
-];
-
-// 深色主题
-const isDarkTheme = true;
+import { 
+  UserType, 
+  getUserType, 
+  setAdmin, 
+  getAllUsers, 
+  getUserSettingsById,
+  initUserMeta 
+} from './utils/adminUtils';
 
 interface UserSettingsViewProps {
   isDark: boolean;
@@ -31,6 +23,7 @@ interface UserSettingsViewProps {
 
 export function UserSettingsView({ isDark }: UserSettingsViewProps) {
   const [userId, setUserId] = useState<string>('');
+  const [userType, setUserType] = useState<UserType>('user');
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +32,12 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  
+  // 管理员模式
+  const [adminMode, setAdminMode] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ user_id: string; created_at: string }[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUserSettings, setSelectedUserSettings] = useState<UserSetting[]>([]);
   
   // 编辑状态
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -54,16 +53,20 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
 
   // 加载设置
   useEffect(() => {
-    if (isLoggedIn && userId) {
+    if (isLoggedIn && userId && !adminMode) {
       loadSettings();
     }
-  }, [isLoggedIn, userId]);
+  }, [isLoggedIn, userId, adminMode]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       setUserId(session.user.id);
       setIsLoggedIn(true);
+      
+      // 获取用户类型
+      const type = await getUserType(session.user.id);
+      setUserType(type);
     }
   };
 
@@ -91,6 +94,13 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
       if (data.user) {
         setUserId(data.user.id);
         setIsLoggedIn(true);
+        
+        // 初始化用户元数据
+        await initUserMeta(data.user.id, email);
+        
+        // 获取用户类型
+        const type = await getUserType(data.user.id);
+        setUserType(type);
       }
     } catch (err: any) {
       setAuthError(err.message || '登录失败');
@@ -109,6 +119,10 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
       if (data.user) {
         setUserId(data.user.id);
         setIsLoggedIn(true);
+        
+        // 初始化用户元数据
+        await initUserMeta(data.user.id, email);
+        
         alert('注册成功！请查看邮箱验证链接。');
       }
     } catch (err: any) {
@@ -124,6 +138,8 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
     setIsLoggedIn(false);
     setUserId('');
     setSettings([]);
+    setUserType('user');
+    setAdminMode(false);
   };
 
   // 添加设置
@@ -191,53 +207,307 @@ export function UserSettingsView({ isDark }: UserSettingsViewProps) {
     setShowAddForm(false);
   };
 
+  // ============ 管理员功能 ============
+  
+  // 加载所有用户
+  const loadAllUsers = async () => {
+    setLoading(true);
+    try {
+      const users = await getAllUsers();
+      setAllUsers(users);
+    } catch (err: any) {
+      setError(err.message || '加载用户列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 选择查看某用户设置
+  const viewUserSettings = async (targetUserId: string) => {
+    setSelectedUser(targetUserId);
+    setLoading(true);
+    try {
+      const settings = await getUserSettingsById(targetUserId);
+      setSelectedUserSettings(settings);
+    } catch (err: any) {
+      setError(err.message || '加载用户设置失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 设置管理员
+  const handleSetAdmin = async (targetUserId: string, becomeAdmin: boolean) => {
+    if (!confirm(`确定要 ${becomeAdmin ? '设置' : '取消'} 该用户的管理员权限吗？`)) return;
+    
+    setLoading(true);
+    try {
+      await setAdmin(targetUserId, becomeAdmin);
+      await loadAllUsers();
+      alert(`已 ${becomeAdmin ? '设置' : '取消'} 该用户的管理员权限`);
+    } catch (err: any) {
+      setError(err.message || '操作失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 进入管理员模式
+  const enterAdminMode = async () => {
+    await loadAllUsers();
+    setAdminMode(true);
+  };
+
   const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
 
+  // ============ 渲染 ============
+  
+  // 管理员模式
+  if (adminMode && userType === 'admin') {
+    return (
+      <div className="space-y-5">
+        <div className={cn("rounded-xl p-6", cardClass)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn("p-3 rounded-xl bg-purple-500/20")}>
+                <Crown className="text-purple-400" size={24} />
+              </div>
+              <div>
+                <p className={cn("font-medium", isDark ? "text-white" : "text-gray-800")}>
+                  管理员后台
+                </p>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
+                  管理所有用户和设置
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setAdminMode(false); setSelectedUser(null); }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-gray-200 hover:bg-gray-300"
+              )}
+            >
+              返回我的设置
+            </button>
+          </div>
+        </div>
+
+        {selectedUser ? (
+          // 查看指定用户设置
+          <div className={cn("rounded-xl p-6", cardClass)}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className={cn("text-lg font-semibold", isDark ? "text-white" : "text-gray-800")}>
+                  用户设置详情
+                </h2>
+                <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
+                  User ID: {selectedUser.slice(0, 8)}...
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm",
+                  isDark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-200 hover:bg-gray-300"
+                )}
+              >
+                返回列表
+              </button>
+            </div>
+            
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="animate-spin mx-auto" size={32} />
+              </div>
+            ) : (
+              <div className={cn("rounded-lg overflow-hidden", isDark ? "bg-slate-900/50" : "bg-gray-50")}>
+                <table className="w-full text-sm">
+                  <thead className={isDark ? "bg-slate-700/50" : "bg-gray-100"}>
+                    <tr>
+                      <th className={cn("text-left py-2 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>键</th>
+                      <th className={cn("text-left py-2 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>值</th>
+                      <th className={cn("text-left py-2 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedUserSettings.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className={cn("py-6 text-center", isDark ? "text-slate-500" : "text-gray-400")}>
+                          该用户暂无设置
+                        </td>
+                      </tr>
+                    ) : (
+                      selectedUserSettings.map(setting => (
+                        <tr key={setting.id} className={cn("border-t", isDark ? "border-slate-700" : "border-gray-200")}>
+                          <td className={cn("py-2 px-4 font-mono text-sm", isDark ? "text-blue-400" : "text-blue-600")}>
+                            {setting.setting_key}
+                          </td>
+                          <td className={cn("py-2 px-4", isDark ? "text-slate-300" : "text-gray-700")}>
+                            {setting.setting_value || '-'}
+                          </td>
+                          <td className={cn("py-2 px-4 text-xs", isDark ? "text-slate-500" : "text-gray-400")}>
+                            {new Date(setting.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          // 用户列表
+          <div className={cn("rounded-xl p-6", cardClass)}>
+            <h2 className={cn("text-lg font-semibold mb-4", isDark ? "text-white" : "text-gray-800")}>
+              用户列表
+              <span className={cn("text-sm font-normal ml-2", isDark ? "text-slate-400" : "text-gray-500")}>
+                {allUsers.length} 人
+              </span>
+            </h2>
+            
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="animate-spin mx-auto" size={32} />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {allUsers.map(user => {
+                  const isCurrentUser = user.user_id === userId;
+                  return (
+                    <div 
+                      key={user.user_id}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg",
+                        isDark ? "bg-slate-700/50" : "bg-gray-50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("p-2 rounded-lg", isDark ? "bg-slate-600" : "bg-gray-200")}>
+                          <User size={18} className={isDark ? "text-slate-300" : "text-gray-600"} />
+                        </div>
+                        <div>
+                          <p className={cn("font-mono text-sm", isDark ? "text-white" : "text-gray-800")}>
+                            {user.user_id.slice(0, 8)}...{user.user_id.slice(-4)}
+                            {isCurrentUser && <span className={cn("ml-2 text-xs", isDark ? "text-blue-400" : "text-blue-600")}>（我）</span>}
+                          </p>
+                          <p className={cn("text-xs", isDark ? "text-slate-500" : "text-gray-400")}>
+                            注册于 {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => viewUserSettings(user.user_id)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg text-sm",
+                            isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                          )}
+                        >
+                          查看设置
+                        </button>
+                        {!isCurrentUser && (
+                          <button
+                            onClick={() => handleSetAdmin(user.user_id, false)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-sm",
+                              isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-100 text-red-600 hover:bg-red-200"
+                            )}
+                          >
+                            移除管理员
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className={cn("rounded-lg p-4 text-sm text-red-400", isDark ? "bg-red-900/30" : "bg-red-50 text-red-600")}>
+            {error}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 普通用户模式
   return (
     <div className="space-y-5">
       {/* 登录/用户信息区域 */}
       <div className={cn("rounded-xl p-6", cardClass)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn("p-3 rounded-xl", isDark ? "bg-blue-500/20" : "bg-blue-100")}>
-              <User className={isDark ? "text-blue-400" : "text-blue-600"} size={24} />
+            <div className={cn("p-3 rounded-xl", 
+              userType === 'admin' 
+                ? isDark ? "bg-purple-500/20" : "bg-purple-100"
+                : isDark ? "bg-blue-500/20" : "bg-blue-100"
+            )}>
+              {userType === 'admin' ? (
+                <Shield className={isDark ? "text-purple-400" : "text-purple-600"} size={24} />
+              ) : (
+                <User className={isDark ? "text-blue-400" : "text-blue-600"} size={24} />
+              )}
             </div>
             <div>
               {isLoggedIn ? (
                 <>
-                  <p className={cn("font-medium", isDark ? "text-white" : "text-gray-800")}>已登录</p>
-                  <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>用户ID: {userId.slice(0, 8)}...</p>
+                  <p className={cn("font-medium", isDark ? "text-white" : "text-gray-800")}>
+                    {userType === 'admin' ? '管理员' : '已登录'}
+                  </p>
+                  <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>
+                    用户ID: {userId.slice(0, 8)}...
+                  </p>
                 </>
               ) : (
                 <p className={cn("font-medium", isDark ? "text-slate-400" : "text-gray-500")}>未登录</p>
               )}
             </div>
           </div>
-          {isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
-                isDark ? "text-red-400 border border-red-400 hover:bg-slate-700" : "text-red-600 border border-red-600 hover:bg-red-50"
-              )}
-            >
-              <LogOut size={16} />
-              登出
-            </button>
-          ) : (
-            <LoginForm 
-              onLogin={handleLogin} 
-              onSignup={handleSignup}
-              loading={authLoading}
-              error={authError}
-              isDark={isDark}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {userType === 'admin' && (
+              <button
+                onClick={enterAdminMode}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                  isDark ? "bg-purple-500/20 text-purple-400 border border-purple-500/50 hover:bg-purple-500/30" : "bg-purple-100 text-purple-600 border border-purple-200 hover:bg-purple-200"
+                )}
+              >
+                <Crown size={16} />
+                管理后台
+              </button>
+            )}
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                  isDark ? "text-red-400 border border-red-400 hover:bg-slate-700" : "text-red-600 border border-red-600 hover:bg-red-50"
+                )}
+              >
+                <LogOut size={16} />
+                登出
+              </button>
+            ) : (
+              <LoginForm 
+                onLogin={handleLogin} 
+                onSignup={handleSignup}
+                loading={authLoading}
+                error={authError}
+                isDark={isDark}
+              />
+            )}
+          </div>
         </div>
       </div>
 
       {/* 设置列表 */}
-      {isLoggedIn && (
+      {isLoggedIn && !adminMode && (
         <>
           <div className={cn("rounded-xl p-4", cardClass)}>
             <div className="flex items-center justify-between">
