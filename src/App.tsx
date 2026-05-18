@@ -6,6 +6,7 @@ import { performCalculation, downloadCSV, calculateDirectRequirements } from './
 import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
+import { getAdminData } from './utils/adminData';
 
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
@@ -34,16 +35,50 @@ export default function App() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [history, setHistory] = useState<CalculationHistory[]>([]);
+  const [isReadOnly, setIsReadOnly] = useState(false); // 未登录时只读模式
 
   // 加载数据
   useEffect(() => {
-    refreshData();
+    loadData();
   }, []);
 
+  const loadData = async () => {
+    const localMaterials = getMaterials();
+    const localRecipes = getRecipes();
+    const localHistory = getHistory();
+
+    // 如果本地没有数据，从 admin 加载
+    if (localMaterials.length === 0 && localRecipes.length === 0) {
+      const adminData = await getAdminData();
+      if (adminData.materials.length > 0 || adminData.recipes.length > 0) {
+        setMaterials(adminData.materials);
+        setRecipes(adminData.recipes);
+        saveMaterials(adminData.materials);
+        saveRecipes(adminData.recipes);
+        setHistory(localHistory);
+        setIsReadOnly(true); // 使用 admin 数据，设为只读
+        return;
+      }
+    }
+
+    setMaterials(localMaterials);
+    setRecipes(localRecipes);
+    setHistory(localHistory);
+  };
+
   const refreshData = () => {
-    setMaterials(getMaterials());
-    setRecipes(getRecipes());
-    setHistory(getHistory());
+    const localMaterials = getMaterials();
+    const localRecipes = getRecipes();
+    const localHistory = getHistory();
+    
+    // 如果本地有数据，则取消只读模式
+    if (localMaterials.length > 0 || localRecipes.length > 0) {
+      setIsReadOnly(false);
+    }
+    
+    setMaterials(localMaterials);
+    setRecipes(localRecipes);
+    setHistory(localHistory);
   };
 
   return (
@@ -102,6 +137,7 @@ export default function App() {
             materials={materials} 
             onMaterialsChange={refreshData}
             isDark={isDark}
+            isReadOnly={isReadOnly}
           />
         )}
         {activeTab === 'recipes' && (
@@ -110,6 +146,7 @@ export default function App() {
             recipes={recipes}
             onRecipesChange={refreshData}
             isDark={isDark}
+            isReadOnly={isReadOnly}
           />
         )}
         {activeTab === 'history' && (
@@ -415,10 +452,11 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
 }
 
 // ============ 物品管理视图 ============
-function MaterialsView({ materials, onMaterialsChange, isDark }: { 
+function MaterialsView({ materials, onMaterialsChange, isDark, isReadOnly }: { 
   materials: Material[];
   onMaterialsChange: () => void;
   isDark: boolean;
+  isReadOnly?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -507,13 +545,16 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
           </div>
           <button
             onClick={() => setShowForm(true)}
+            disabled={isReadOnly}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
-              isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
+              isReadOnly 
+                ? (isDark ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-gray-400 text-gray-200 cursor-not-allowed")
+                : (isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700")
             )}
           >
             <Plus size={18} />
-            添加
+            {isReadOnly ? '只读' : '添加'}
           </button>
         </div>
       </div>
@@ -625,12 +666,16 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
                     </button>
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <button onClick={() => handleEdit(material)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
-                      <Edit2 size={15} />
-                    </button>
-                    <button onClick={() => handleDelete(material.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
-                      <Trash2 size={15} />
-                    </button>
+                    {!isReadOnly && (
+                      <>
+                        <button onClick={() => handleEdit(material)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                          <Edit2 size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(material.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -643,11 +688,12 @@ function MaterialsView({ materials, onMaterialsChange, isDark }: {
 }
 
 // ============ 配方管理视图 ============
-function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
+function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }: {
   materials: Material[];
   recipes: Recipe[];
   onRecipesChange: () => void;
   isDark: boolean;
+  isReadOnly?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -808,13 +854,16 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
           </div>
           <button
             onClick={() => setShowForm(true)}
+            disabled={isReadOnly}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
-              isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700"
+              isReadOnly 
+                ? (isDark ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-gray-400 text-gray-200 cursor-not-allowed")
+                : (isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700")
             )}
           >
             <Plus size={18} />
-            添加配方
+            {isReadOnly ? '只读' : '添加配方'}
           </button>
         </div>
       </div>
@@ -942,12 +991,16 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => handleEdit(recipe)} className={cn("p-2 rounded-lg", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
-                    <Edit2 size={18} />
-                  </button>
-                  <button onClick={() => handleDelete(recipe.id)} className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
-                    <Trash2 size={18} />
-                  </button>
+                  {!isReadOnly && (
+                    <>
+                      <button onClick={() => handleEdit(recipe)} className={cn("p-2 rounded-lg", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                        <Edit2 size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(recipe.id)} className={cn("p-2 rounded-lg", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                        <Trash2 size={18} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
