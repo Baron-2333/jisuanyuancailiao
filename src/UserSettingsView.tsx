@@ -690,12 +690,16 @@ function LoginForm({
   error: string | null;
   isDark: boolean;
 }) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSignup, setIsSignup] = useState(false);
 
+  // 将用户名转换为虚拟邮箱（Supabase 需要 email 字段）
+  const toEmail = (name: string) => `${name.toLowerCase().replace(/\s+/g, '_')}@local.app`;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const email = toEmail(username);
     if (isSignup) {
       onSignup(email, password);
     } else {
@@ -706,12 +710,12 @@ function LoginForm({
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <input
-        type="email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder="邮箱"
+        type="text"
+        value={username}
+        onChange={e => setUsername(e.target.value)}
+        placeholder="用户名"
         required
-        className={cn("w-36 px-3 py-2 rounded-lg text-sm", 
+        className={cn("w-28 px-3 py-2 rounded-lg text-sm", 
           isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
         )}
       />
@@ -722,7 +726,7 @@ function LoginForm({
         placeholder="密码"
         required
         minLength={6}
-        className={cn("w-32 px-3 py-2 rounded-lg text-sm", 
+        className={cn("w-28 px-3 py-2 rounded-lg text-sm", 
           isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
         )}
       />
