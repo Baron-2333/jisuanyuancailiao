@@ -52,13 +52,9 @@ export default function App() {
     const { data: { session } } = await supabase.auth.getSession();
     const currentUserId = session?.user?.id;
 
-    console.log('[DEBUG loadData] 当前用户ID:', currentUserId);
-    console.log('[DEBUG loadData] localRecipes数量:', localRecipes.length);
-
     if (currentUserId) {
       // 登录用户：从 Supabase 同步数据（强制覆盖本地缓存）
       const userData = await getUserDataFromDB(currentUserId);
-      console.log('[DEBUG loadData] 从DB加载的配方数量:', userData.recipes.length);
       setMaterials(userData.materials);
       setRecipes(userData.recipes);
       saveMaterials(userData.materials);

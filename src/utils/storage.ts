@@ -1,9 +1,6 @@
 import { Material, Recipe, CalculationHistory } from '../types';
 import { supabase } from './supabase';
 
-// 调试：确认 supabase 导入状态
-console.log('[DEBUG storage] supabase 导入类型:', typeof supabase);
-
 const STORAGE_KEYS = {
   MATERIALS: 'minecraft_calculator_materials',
   RECIPES: 'minecraft_calculator_recipes',
@@ -45,8 +42,6 @@ async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | R
 
     if (error) {
       console.error(`同步 ${key} 到 Supabase 失败:`, error.message, 'code:', error.code, 'details:', error.details);
-    } else {
-      console.log(`[DEBUG] 同步 ${key} 成功, 用户:`, userId, '数量:', data.length);
     }
   } catch (e) {
     console.error('同步到 Supabase 异常:', e);
