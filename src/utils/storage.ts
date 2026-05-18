@@ -41,7 +41,8 @@ async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | R
       .eq('setting_key', settingKey);
 
     if (updateError) {
-      console.error(`UPDATE ${key} 失败:`, updateError.message);
+      alert(`保存失败: ${updateError.message}`);
+      console.error(`UPDATE ${key} 失败:`, updateError);
       // 如果 UPDATE 影响 0 行，尝试 INSERT
       if (updateError.code === 'PGRST116') {
         const { error: insertError } = await supabase
@@ -54,12 +55,16 @@ async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | R
           });
         
         if (insertError) {
-          console.error(`INSERT ${key} 失败:`, insertError.message);
+          alert(`插入失败: ${insertError.message}`);
+          console.error(`INSERT ${key} 失败:`, insertError);
         }
       }
+    } else {
+      console.log(`[保存成功] ${key}:`, data.length, '条');
     }
   } catch (e) {
     console.error('同步到 Supabase 异常:', e);
+    alert(`保存异常: ${e}`);
   }
 }
 
