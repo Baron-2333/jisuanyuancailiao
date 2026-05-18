@@ -6,7 +6,7 @@ import { performCalculation, downloadCSV, calculateDirectRequirements } from './
 import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
-import { getAdminData } from './utils/adminData';
+import { getAdminData, getUserDataFromDB } from './utils/adminData';
 
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
@@ -47,7 +47,25 @@ export default function App() {
     const localRecipes = getRecipes();
     const localHistory = getHistory();
 
-    // 如果本地没有数据，从 admin 加载
+    // 检查是否登录
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id;
+
+    if (currentUserId) {
+      // 登录用户：从 Supabase 同步数据
+      const userData = await getUserDataFromDB(currentUserId);
+      if (userData.materials.length > 0 || userData.recipes.length > 0) {
+        setMaterials(userData.materials);
+        setRecipes(userData.recipes);
+        saveMaterials(userData.materials);
+        saveRecipes(userData.recipes);
+        setHistory(localHistory);
+        setIsReadOnly(false); // 登录用户可编辑
+        return;
+      }
+    }
+
+    // 未登录或用户无数据：从 admin 加载
     if (localMaterials.length === 0 && localRecipes.length === 0) {
       const adminData = await getAdminData();
       if (adminData.materials.length > 0 || adminData.recipes.length > 0) {
@@ -66,12 +84,31 @@ export default function App() {
     setHistory(localHistory);
   };
 
-  const refreshData = () => {
-    const localMaterials = getMaterials();
-    const localRecipes = getRecipes();
+  const refreshData = async () => {
     const localHistory = getHistory();
     
-    // 如果本地有数据，则取消只读模式
+    // 检查是否登录
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id;
+
+    if (currentUserId) {
+      // 登录用户：从 Supabase 同步最新数据
+      const userData = await getUserDataFromDB(currentUserId);
+      if (userData.materials.length > 0 || userData.recipes.length > 0) {
+        setMaterials(userData.materials);
+        setRecipes(userData.recipes);
+        saveMaterials(userData.materials);
+        saveRecipes(userData.recipes);
+        setHistory(localHistory);
+        setIsReadOnly(false);
+        return;
+      }
+    }
+
+    // 未登录或无数据，使用本地数据
+    const localMaterials = getMaterials();
+    const localRecipes = getRecipes();
+    
     if (localMaterials.length > 0 || localRecipes.length > 0) {
       setIsReadOnly(false);
     }
