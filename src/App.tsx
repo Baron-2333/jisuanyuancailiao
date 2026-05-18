@@ -53,7 +53,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.10</span>
+                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.11</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                 本网站的代码100%由AI生成
