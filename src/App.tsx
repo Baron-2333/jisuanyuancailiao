@@ -348,10 +348,10 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                     <span className="font-medium text-sm">{index + 1}.</span>
                   </div>
                   <div className="flex-1">
-                    {/* datalist 用于拼音搜索联想 */}
+                    {/* datalist 用于拼音搜索联想，value包含名称和拼音首字母 */}
                     <datalist id={`recipes-list-${target.id}`}>
                       {recipes.map(recipe => (
-                        <option key={recipe.id} value={recipe.name} />
+                        <option key={recipe.id} value={`${recipe.name} ${recipe.pinyin}`} />
                       ))}
                     </datalist>
                     <input
