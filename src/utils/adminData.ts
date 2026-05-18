@@ -15,12 +15,17 @@ export async function getUserDataFromDB(userId: string): Promise<{ materials: Ma
       .select('setting_key, setting_value')
       .eq('user_id', userId);
 
+    console.log('[DEBUG getUserDataFromDB] 用户ID:', userId);
+    console.log('[DEBUG getUserDataFromDB] ownSettings:', ownSettings);
+    console.log('[DEBUG getUserDataFromDB] ownError:', ownError);
+
     let materials: Material[] = [];
     let recipes: Recipe[] = [];
 
     // 如果获取到数据，处理它
     if (ownSettings && ownSettings.length > 0) {
       for (const row of ownSettings) {
+        console.log('[DEBUG getUserDataFromDB] 处理行:', row.setting_key, '值长度:', row.setting_value?.length);
         if (row.setting_key === 'materials' && row.setting_value) {
           try {
             materials = JSON.parse(row.setting_value);
@@ -39,12 +44,15 @@ export async function getUserDataFromDB(userId: string): Promise<{ materials: Ma
       
       // 如果用户有自己的数据，直接返回
       if (materials.length > 0 || recipes.length > 0) {
+        console.log('[DEBUG getUserDataFromDB] 返回用户自己的数据:', materials.length, recipes.length);
         return { materials, recipes };
       }
     }
 
     // 如果用户没有数据，尝试获取 admin 数据
+    console.log('[DEBUG getUserDataFromDB] 用户无数据，尝试获取admin数据');
     const adminData = await getAdminData();
+    console.log('[DEBUG getUserDataFromDB] admin数据:', adminData.materials.length, adminData.recipes.length);
     return adminData;
   } catch (e) {
     console.error('获取用户数据异常:', e);
