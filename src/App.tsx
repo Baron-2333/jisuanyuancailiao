@@ -6,6 +6,7 @@ import { performCalculation, downloadCSV, calculateDirectRequirements } from './
 import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
+import { supabase } from './utils/supabase';
 import { getAdminData, getUserDataFromDB } from './utils/adminData';
 
 // Tab类型
