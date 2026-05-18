@@ -1,6 +1,6 @@
 // 版本信息 - 每次发布时更新
-export const VERSION = 'v0.1.46';
-export const BUILD_TIME = '2026-05-19 01:41';
+export const VERSION = 'v0.1.47';
+export const BUILD_TIME = '2026-05-19 01:46';
 
 // 获取格式化的时间
 export function getFormattedBuildTime(): string {
