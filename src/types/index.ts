@@ -74,3 +74,17 @@ export interface ExpandedRequirement extends MaterialRequirement {
   fromTargets: string[]; // 来源：哪些目标物品需要它
   usageDetails: UsageDetail[]; // 详细用途
 }
+
+// 加工程序类型
+export interface Process {
+  id: string;
+  name: string;              // 加工程序名称（如"熔炼"、"锻造"）
+  inputName: string;         // 输入材料名称
+  inputQuantity: number;     // 输入数量
+  processStep: string;       // 加工步骤描述
+  outputName: string;        // 产物名称
+  outputQuantity: number;     // 产物数量
+  traceEnabled: boolean;     // 是否追溯计算
+  createdAt: number;
+  updatedAt: number;
+}

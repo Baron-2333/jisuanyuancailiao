@@ -1,10 +1,11 @@
-import { Material, Recipe, CalculationHistory } from '../types';
+import { Material, Recipe, CalculationHistory, Process } from '../types';
 import { supabase } from './supabase';
 
 const STORAGE_KEYS = {
   MATERIALS: 'minecraft_calculator_materials',
   RECIPES: 'minecraft_calculator_recipes',
   HISTORY: 'minecraft_calculator_history',
+  PROCESSES: 'minecraft_calculator_processes',
 };
 
 // 通用存储函数
@@ -170,4 +171,33 @@ export function deleteHistoryItem(id: string): void {
 // 工具函数：生成唯一ID
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// ============ 加工程序管理 ============
+export function getProcesses(): Process[] {
+  return getStorageData<Process[]>(STORAGE_KEYS.PROCESSES, []);
+}
+
+export function saveProcesses(processes: Process[]): void {
+  setStorageData(STORAGE_KEYS.PROCESSES, processes);
+}
+
+export function addProcess(process: Process): void {
+  const processes = getProcesses();
+  processes.push(process);
+  saveProcesses(processes);
+}
+
+export function updateProcess(id: string, updates: Partial<Process>): void {
+  const processes = getProcesses();
+  const index = processes.findIndex(p => p.id === id);
+  if (index !== -1) {
+    processes[index] = { ...processes[index], ...updates, updatedAt: Date.now() };
+    saveProcesses(processes);
+  }
+}
+
+export function deleteProcess(id: string): void {
+  const processes = getProcesses().filter(p => p.id !== id);
+  saveProcesses(processes);
 }

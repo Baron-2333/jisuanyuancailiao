@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, LogOut, LogIn, Loader2, Lock, Settings } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, LogOut, LogIn, Loader2, Lock, Settings, Cog } from 'lucide-react';
 import { cn } from './utils/utils';
-import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe } from './utils/storage';
+import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe, getProcesses, addProcess, updateProcess, deleteProcess } from './utils/storage';
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, getPinyin } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, Process, getPinyin } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
 import { supabase } from './utils/supabase';
 import { getAdminData, getUserDataFromDB } from './utils/adminData';
 
 // Tab类型
-type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
+type TabType = 'calculator' | 'materials' | 'recipes' | 'processes' | 'history' | 'settings';
 
 // 单个目标材料配置
 interface TargetMaterial {
@@ -24,6 +24,7 @@ const tabs = [
   { id: 'calculator' as TabType, label: '配方计算', icon: Calculator },
   { id: 'materials' as TabType, label: '物品管理', icon: Package },
   { id: 'recipes' as TabType, label: '配方管理', icon: BookOpen },
+  { id: 'processes' as TabType, label: '加工程序', icon: Cog },
   { id: 'history' as TabType, label: '历史记录', icon: History },
   { id: 'settings' as TabType, label: '用户设置', icon: Settings },
 ];
@@ -35,6 +36,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('calculator');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [processes, setProcesses] = useState<Process[]>([]);
   const [history, setHistory] = useState<CalculationHistory[]>([]);
   const [isReadOnly, setIsReadOnly] = useState(false); // 未登录时只读模式
 
@@ -47,6 +49,7 @@ export default function App() {
     const localMaterials = getMaterials();
     let localRecipes = getRecipes();
     const localHistory = getHistory();
+    const localProcesses = getProcesses();
 
     // 迁移：始终根据最新映射表重新计算 pinyin
     localRecipes = localRecipes.map(recipe => ({
@@ -71,6 +74,7 @@ export default function App() {
       setRecipes(migratedRecipes);
       saveMaterials(userData.materials);
       saveRecipes(migratedRecipes);
+      setProcesses(localProcesses); // 保持本地加工程序
       setHistory(localHistory);
       setIsReadOnly(false); // 登录用户可编辑
       return;
@@ -90,6 +94,7 @@ export default function App() {
         setRecipes(migratedRecipes);
         saveMaterials(adminData.materials);
         saveRecipes(migratedRecipes);
+        setProcesses(localProcesses);
         setHistory(localHistory);
         setIsReadOnly(true); // 使用 admin 数据，设为只读
         return;
@@ -98,11 +103,13 @@ export default function App() {
 
     setMaterials(localMaterials);
     setRecipes(localRecipes);
+    setProcesses(localProcesses);
     setHistory(localHistory);
   };
 
   const refreshData = async () => {
     const localHistory = getHistory();
+    const localProcesses = getProcesses();
     
     // 检查是否登录
     const { data: { session } } = await supabase.auth.getSession();
@@ -115,6 +122,7 @@ export default function App() {
       setRecipes(userData.recipes);
       saveMaterials(userData.materials);
       saveRecipes(userData.recipes);
+      setProcesses(localProcesses); // 保持本地加工程序
       setHistory(localHistory);
       setIsReadOnly(false);
       return;
@@ -130,6 +138,7 @@ export default function App() {
     
     setMaterials(localMaterials);
     setRecipes(localRecipes);
+    setProcesses(localProcesses);
     setHistory(localHistory);
   };
 
@@ -197,6 +206,14 @@ export default function App() {
             materials={materials}
             recipes={recipes}
             onRecipesChange={refreshData}
+            isDark={isDark}
+            isReadOnly={isReadOnly}
+          />
+        )}
+        {activeTab === 'processes' && (
+          <ProcessesView 
+            processes={processes}
+            onProcessesChange={refreshData}
             isDark={isDark}
             isReadOnly={isReadOnly}
           />
@@ -1147,6 +1164,346 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }
               </div>
             </div>
           ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============ 加工程序视图 ============
+function ProcessesView({ processes, onProcessesChange, isDark, isReadOnly }: {
+  processes: Process[];
+  onProcessesChange: () => void;
+  isDark: boolean;
+  isReadOnly?: boolean;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    inputName: '',
+    inputQuantity: 1,
+    processStep: '',
+    outputName: '',
+    outputQuantity: 1,
+    traceEnabled: true,
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredProcesses = processes.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.inputName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.outputName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.inputName.trim() || !formData.outputName.trim()) return;
+
+    if (editingId) {
+      updateProcess(editingId, formData);
+      setEditingId(null);
+    } else {
+      const newProcess: Process = {
+        id: generateId(),
+        ...formData,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      addProcess(newProcess);
+    }
+
+    setFormData({
+      name: '',
+      inputName: '',
+      inputQuantity: 1,
+      processStep: '',
+      outputName: '',
+      outputQuantity: 1,
+      traceEnabled: true,
+    });
+    setShowForm(false);
+    onProcessesChange();
+  };
+
+  const handleEdit = (process: Process) => {
+    setFormData({
+      name: process.name,
+      inputName: process.inputName,
+      inputQuantity: process.inputQuantity,
+      processStep: process.processStep,
+      outputName: process.outputName,
+      outputQuantity: process.outputQuantity,
+      traceEnabled: process.traceEnabled,
+    });
+    setEditingId(process.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('确定要删除这个加工程序吗？')) {
+      deleteProcess(id);
+      onProcessesChange();
+    }
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      name: '',
+      inputName: '',
+      inputQuantity: 1,
+      processStep: '',
+      outputName: '',
+      outputQuantity: 1,
+      traceEnabled: true,
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const toggleTrace = (process: Process) => {
+    updateProcess(process.id, { traceEnabled: !process.traceEnabled });
+    onProcessesChange();
+  };
+
+  const cardClass = cn("rounded-xl backdrop-blur-xl", isDark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white/70 border border-gray-200/50 shadow-lg");
+
+  return (
+    <div className="space-y-5">
+      <div className={cn("rounded-xl p-4", cardClass)}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="搜索..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className={cn("px-4 py-2.5 rounded-lg text-base", 
+                isDark ? "bg-slate-700/80 text-white border-slate-600 placeholder-slate-400" : "border border-gray-300"
+              )}
+            />
+            <span className={cn("text-base", isDark ? "text-slate-400" : "text-gray-500")}>
+              {filteredProcesses.length} 个
+            </span>
+          </div>
+          <button
+            onClick={() => setShowForm(true)}
+            disabled={isReadOnly}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-base",
+              isReadOnly 
+                ? (isDark ? "bg-slate-600 text-slate-400 cursor-not-allowed" : "bg-gray-400 text-gray-200 cursor-not-allowed")
+                : (isDark ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-600 text-white hover:bg-blue-700")
+            )}
+          >
+            <Plus size={18} />
+            {isReadOnly ? '只读' : '添加'}
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className={cn("rounded-xl p-6", cardClass)}>
+          <h3 className={cn("font-semibold mb-4", isDark ? "text-white" : "text-gray-800")}>
+            {editingId ? '编辑加工程序' : '添加新加工程序'}
+          </h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  名称
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                  placeholder="如：高炉熔炼"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  加工步骤
+                </label>
+                <input
+                  type="text"
+                  value={formData.processStep}
+                  onChange={e => setFormData({ ...formData, processStep: e.target.value })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                  placeholder="如：高温处理"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  输入材料
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.inputName}
+                  onChange={e => setFormData({ ...formData, inputName: e.target.value })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                  placeholder="输入材料名称"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  输入数量
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={formData.inputQuantity}
+                  onChange={e => setFormData({ ...formData, inputQuantity: parseInt(e.target.value) || 1 })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  产物
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.outputName}
+                  onChange={e => setFormData({ ...formData, outputName: e.target.value })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                  placeholder="产物名称"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm mb-1", isDark ? "text-slate-400" : "text-gray-600")}>
+                  产物数量
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={formData.outputQuantity}
+                  onChange={e => setFormData({ ...formData, outputQuantity: parseInt(e.target.value) || 1 })}
+                  className={cn("w-full px-3 py-2 rounded-lg text-sm", 
+                    isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* 追溯开关 */}
+            <div className={cn("flex items-center gap-3 p-3 rounded-lg", isDark ? "bg-slate-700/50" : "bg-gray-50")}>
+              <span className={cn("text-sm", isDark ? "text-slate-300" : "text-gray-700")}>
+                追溯计算（计算原材料时追溯此工序）
+              </span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, traceEnabled: !formData.traceEnabled })}
+                className={cn(
+                  "relative w-12 h-6 rounded-full transition-colors",
+                  formData.traceEnabled ? "bg-green-500" : isDark ? "bg-slate-500" : "bg-gray-300"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform",
+                  formData.traceEnabled ? "left-6" : "left-0.5"
+                )} />
+              </button>
+              <span className={cn("text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
+                {formData.traceEnabled ? '开启' : '关闭'}
+              </span>
+            </div>
+
+            <div className="flex gap-3">
+              <button type="submit" className={cn("px-4 py-2 rounded-lg text-sm", isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white")}>
+                <Save size={16} className="inline mr-1" />
+                保存
+              </button>
+              <button type="button" onClick={handleCancel} className={cn("px-4 py-2 rounded-lg text-sm", isDark ? "border border-slate-600 text-slate-300" : "border border-gray-300")}>
+                <X size={16} className="inline mr-1" />
+                取消
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className={cn("rounded-xl overflow-hidden", cardClass)}>
+        {filteredProcesses.length === 0 ? (
+          <div className="p-10 text-center">
+            <Cog className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={40} />
+            <p className={cn("mt-3", isDark ? "text-slate-400" : "text-gray-500")}>
+              {searchTerm ? '没有找到' : '暂无数据'}
+            </p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className={isDark ? "bg-slate-700/50" : "bg-gray-50"}>
+              <tr>
+                <th className={cn("text-left py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>名称</th>
+                <th className={cn("text-center py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>输入</th>
+                <th className={cn("text-left py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>加工步骤</th>
+                <th className={cn("text-center py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>产物</th>
+                <th className={cn("text-center py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>追溯</th>
+                <th className={cn("text-right py-2.5 px-4 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProcesses.map(process => (
+                <tr key={process.id} className={cn("border-t", isDark ? "border-slate-700" : "border-gray-100")}>
+                  <td className={cn("py-2.5 px-4 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>{process.name}</td>
+                  <td className={cn("py-2.5 px-4 text-center", isDark ? "text-slate-400" : "text-gray-500")}>
+                    {process.inputName} ×{process.inputQuantity}
+                  </td>
+                  <td className={cn("py-2.5 px-4 text-center", isDark ? "text-slate-400" : "text-gray-500")}>{process.processStep}</td>
+                  <td className={cn("py-2.5 px-4 text-center", isDark ? "text-slate-400" : "text-gray-500")}>
+                    {process.outputName} ×{process.outputQuantity}
+                  </td>
+                  <td className="py-2.5 px-4 text-center">
+                    <button
+                      onClick={() => toggleTrace(process)}
+                      className={cn(
+                        "relative w-10 h-5 rounded-full transition-colors inline-block",
+                        process.traceEnabled ? "bg-green-500" : isDark ? "bg-slate-500" : "bg-gray-300"
+                      )}
+                    >
+                      <div className={cn(
+                        "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                        process.traceEnabled ? "left-5" : "left-0.5"
+                      )} />
+                    </button>
+                  </td>
+                  <td className="py-2.5 px-4 text-right">
+                    {!isReadOnly && (
+                      <>
+                        <button onClick={() => handleEdit(process)} className={cn("p-1.5 rounded", isDark ? "text-blue-400 hover:bg-slate-700" : "text-blue-600 hover:bg-blue-50")}>
+                          <Edit2 size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(process.id)} className={cn("p-1.5 rounded", isDark ? "text-red-400 hover:bg-slate-700" : "text-red-600 hover:bg-red-50")}>
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
