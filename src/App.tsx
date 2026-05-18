@@ -54,7 +54,7 @@ export default function App() {
                 Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.2</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
-                工业配方材料需求计算
+                本网站的代码100%由AI生成
               </p>
             </div>
           </div>
@@ -812,16 +812,22 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
                     placeholder="输入材料名称"
                     list="existing-materials"
                   />
-                  <span className={isDark ? "text-slate-400" : "text-gray-400"}>×</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={ing.quantity}
-                    onChange={e => updateIngredient(index, 'quantity', parseInt(e.target.value) || 1)}
-                    className={cn("w-16 px-2 py-2 rounded-lg text-sm text-center", 
-                      isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
-                    )}
-                  />
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5,6,7,8,9].map(num => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => updateIngredient(index, 'quantity', num)}
+                        className={cn("w-8 h-8 rounded text-sm font-medium transition-colors",
+                          ing.quantity === num
+                            ? isDark ? "bg-blue-500 text-white" : "bg-blue-600 text-white"
+                            : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        )}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
                   {formData.ingredients.length > 1 && (
                     <button
                       type="button"
