@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 import { Material, Recipe } from '../types';
 
+// 调试：确认 supabase 导入状态
+console.log('[DEBUG adminData] supabase 导入类型:', typeof supabase);
+
 /**
  * 从 Supabase 获取指定用户的数据
  */
@@ -63,7 +66,7 @@ export async function getAdminData(): Promise<{ materials: Material[]; recipes: 
       .eq('is_admin', true);
 
     if (error) {
-      console.error('获取 admin 数据失败:', error);
+      console.error('获取 admin 数据失败:', error.message, error.code, error.details);
       return { materials: [], recipes: [] };
     }
 
