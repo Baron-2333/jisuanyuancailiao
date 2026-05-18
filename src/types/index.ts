@@ -49,10 +49,12 @@ export interface TargetConfig {
 
 // 用途详情
 export interface UsageDetail {
-  forItem: string;      // 用于制作什么
-  forQty: number;       // 用于多少数量
+  forItem: string;      // 最终产物名称
+  forQty: number;       // 最终产物数量
   qty: number;          // 需要多少原材料
   craftCount: number;   // 合成次数
+  intermediate: string; // 中间产物名称
+  intermediateQty: number; // 中间产物数量
 }
 
 // 展开后的需求（带合成次数）
