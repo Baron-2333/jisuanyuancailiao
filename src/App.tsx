@@ -349,16 +349,16 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                   </div>
                   <div className="flex-1">
                     {/* datalist 用于拼音搜索联想 */}
-                    <datalist id={`recipes-${target.id}`}>
+                    <datalist id={`recipes-list-${target.id}`}>
                       {recipes.map(recipe => (
-                        <option key={recipe.id} value={recipe.id} label={recipe.name} />
+                        <option key={recipe.id} value={recipe.name} />
                       ))}
                     </datalist>
                     <input
                       type="text"
-                      list={`recipes-${target.id}`}
+                      list={`recipes-list-${target.id}`}
                       placeholder="输入配方名称或拼音首字母搜索..."
-                      value={recipes.find(r => r.id === target.recipeId)?.name || ''}
+                      defaultValue={recipes.find(r => r.id === target.recipeId)?.name || ''}
                       onChange={e => {
                         // 查找匹配的配方
                         const searchText = e.target.value.toLowerCase();
