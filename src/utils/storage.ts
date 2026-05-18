@@ -1,4 +1,5 @@
 import { Material, Recipe, CalculationHistory } from '../types';
+import { supabase } from './supabase';
 
 const STORAGE_KEYS = {
   MATERIALS: 'minecraft_calculator_materials',
@@ -20,6 +21,33 @@ function setStorageData<T>(key: string, data: T): void {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// 同步数据到 Supabase（登录用户）
+async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | Recipe[]): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const settingKey = key === 'MATERIALS' ? 'materials' : 'recipes';
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: userId,
+        setting_key: settingKey,
+        setting_value: JSON.stringify(data),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id,setting_key',
+      });
+
+    if (error) {
+      console.error(`同步 ${key} 到 Supabase 失败:`, error);
+    }
+  } catch (e) {
+    console.error('同步到 Supabase 异常:', e);
+  }
+}
+
 // 原材料管理
 export function getMaterials(): Material[] {
   return getStorageData<Material[]>(STORAGE_KEYS.MATERIALS, []);
@@ -27,6 +55,8 @@ export function getMaterials(): Material[] {
 
 export function saveMaterials(materials: Material[]): void {
   setStorageData(STORAGE_KEYS.MATERIALS, materials);
+  // 同步到 Supabase
+  syncToSupabase('MATERIALS', materials);
 }
 
 export function addMaterial(material: Material): void {
@@ -56,6 +86,8 @@ export function getRecipes(): Recipe[] {
 
 export function saveRecipes(recipes: Recipe[]): void {
   setStorageData(STORAGE_KEYS.RECIPES, recipes);
+  // 同步到 Supabase
+  syncToSupabase('RECIPES', recipes);
 }
 
 export function addRecipe(recipe: Recipe): void {
