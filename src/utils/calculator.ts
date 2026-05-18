@@ -1,4 +1,4 @@
-import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement } from '../types';
+import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement, UsageDetail } from '../types';
 import { getRecipes, getMaterials, addHistory, generateId, addMaterial } from './storage';
 
 /**
@@ -8,10 +8,19 @@ function ceilToInt(value: number): number {
   return Math.ceil(value);
 }
 
+// 用途记录类型
+interface UsageRecord {
+  quantity: number;
+  craftCount: number;
+  sources: Set<string>;
+  usageDetails: UsageDetail[];
+}
+
 /**
  * 递归计算目标物品所需的原材料
- * @param targetItemName 目标物品名称（用于查找配方）
+ * @param targetItemName 目标物品名称
  * @param targetQty 需要的目标物品数量
+ * @param forItem 用于什么物品的合成
  * @param recipes 所有配方
  * @param materials 所有物品
  * @param materialRequirements 累计的原材料需求
@@ -19,9 +28,10 @@ function ceilToInt(value: number): number {
 function calculateForItem(
   targetItemName: string,
   targetQty: number,
+  forItem: string,
   recipes: Recipe[],
   materials: Material[],
-  materialRequirements: Map<string, { quantity: number; craftCount: number; sources: Set<string> }>
+  materialRequirements: Map<string, UsageRecord>
 ): void {
   // 查找该物品是否是原材料（开启状态）
   const material = materials.find(m => m.name === targetItemName);
@@ -31,11 +41,13 @@ function calculateForItem(
     const existing = materialRequirements.get(targetItemName);
     if (existing) {
       existing.quantity += targetQty;
+      existing.usageDetails.push({ forItem, forQty: targetQty, qty: targetQty });
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
         craftCount: 0,
-        sources: new Set([targetItemName]),
+        sources: new Set([forItem]),
+        usageDetails: [{ forItem, forQty: targetQty, qty: targetQty }],
       });
     }
     return;
@@ -48,11 +60,13 @@ function calculateForItem(
     const existing = materialRequirements.get(targetItemName);
     if (existing) {
       existing.quantity += targetQty;
+      existing.usageDetails.push({ forItem, forQty: targetQty, qty: targetQty });
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
         craftCount: 0,
-        sources: new Set([targetItemName]),
+        sources: new Set([forItem]),
+        usageDetails: [{ forItem, forQty: targetQty, qty: targetQty }],
       });
     }
     return;
@@ -65,10 +79,11 @@ function calculateForItem(
   for (const ingredient of recipe.ingredients) {
     const ingredientQtyNeeded = ingredient.quantity * craftCount;
 
-    // 递归计算该原材料
+    // 递归计算该原材料，传入当前物品名称作为用途标记
     calculateForItem(
       ingredient.materialName,
       ingredientQtyNeeded,
+      targetItemName, // 记录用于什么物品
       recipes,
       materials,
       materialRequirements
@@ -88,7 +103,10 @@ export function performCalculation(
   const materials = getMaterials();
   
   // 累计的原材料需求
-  const materialRequirements = new Map<string, { quantity: number; craftCount: number; sources: Set<string> }>();
+  const materialRequirements = new Map<string, UsageRecord>();
+
+  // 记录每个目标物品的直接原材料
+  const directTargets: { name: string; qty: number }[] = [];
 
   for (const target of targets) {
     const recipe = recipes.find(r => r.id === target.recipeId);
@@ -104,10 +122,11 @@ export function performCalculation(
     for (const ingredient of recipe.ingredients) {
       const ingredientQtyNeeded = ingredient.quantity * craftCount;
 
-      // 递归计算
+      // 递归计算，传入目标物品名称作为用途标记
       calculateForItem(
         ingredient.materialName,
         ingredientQtyNeeded,
+        targetName,
         recipes,
         materials,
         materialRequirements
@@ -129,10 +148,24 @@ export function performCalculation(
     };
     results.push(requirement);
 
+    // 处理用途详情，合并相同用途
+    const usageMap = new Map<string, number>();
+    for (const usage of data.usageDetails) {
+      const key = `${usage.forItem}×${usage.forQty}`;
+      usageMap.set(key, (usageMap.get(key) || 0) + usage.qty);
+    }
+    
+    const usageDetails: UsageDetail[] = [];
+    for (const [key, qty] of usageMap) {
+      const [forItem, forQtyStr] = key.split('×');
+      usageDetails.push({ forItem, forQty: parseInt(forQtyStr), qty });
+    }
+
     expandedResults.push({
       ...requirement,
       craftCount: data.craftCount,
       fromTargets: Array.from(data.sources),
+      usageDetails,
     });
   }
 

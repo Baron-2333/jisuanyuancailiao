@@ -51,7 +51,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.5</span>
+                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.6</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                 本网站的代码100%由AI生成
@@ -321,8 +321,8 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
               <thead>
                 <tr className={cn("border-b", isDark ? "border-slate-700" : "border-gray-200")}>
                   <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>材料</th>
-                  <th className={cn("text-right py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>数量</th>
-                  <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>来源</th>
+                  <th className={cn("text-right py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>总数量</th>
+                  <th className={cn("text-left py-2 px-3 font-medium", isDark ? "text-slate-400" : "text-gray-600")}>用途明细</th>
                 </tr>
               </thead>
               <tbody>
@@ -337,7 +337,11 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                       {req.totalQuantity}
                     </td>
                     <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
-                      {req.fromTargets?.join(', ')}
+                      {req.usageDetails?.map((usage, idx) => (
+                        <div key={idx}>
+                          {usage.qty}个用于制作 {usage.forItem}×{usage.forQty}
+                        </div>
+                      ))}
                     </td>
                   </tr>
                 ))}

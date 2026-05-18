@@ -47,8 +47,16 @@ export interface TargetConfig {
   quantity: number;
 }
 
+// 用途详情
+export interface UsageDetail {
+  forItem: string;      // 用于制作什么
+  forQty: number;       // 用于多少数量
+  qty: number;          // 需要多少原材料
+}
+
 // 展开后的需求（带合成次数）
 export interface ExpandedRequirement extends MaterialRequirement {
   craftCount: number; // 需要合成的次数
   fromTargets: string[]; // 来源：哪些目标物品需要它
+  usageDetails: UsageDetail[]; // 详细用途
 }
