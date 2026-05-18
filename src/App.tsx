@@ -443,7 +443,13 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                       <td className={cn("py-2 px-3 text-right align-top", 
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
-                        <span className="font-semibold">{req.totalQuantity}</span>
+                        <span className="font-semibold">
+                          {req.totalQuantity > 64 ? (
+                            <>1组+{req.totalQuantity - 64}</>
+                          ) : (
+                            req.totalQuantity
+                          )}
+                        </span>
                       </td>
                       <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
                         {req.usageDetails?.map((usage, idx) => {
