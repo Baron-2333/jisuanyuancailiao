@@ -51,7 +51,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.9</span>
+                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.10</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                 本网站的代码100%由AI生成
@@ -128,10 +128,40 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
   onCalculated: () => void;
   isDark: boolean;
 }) {
-  const [targets, setTargets] = useState<TargetMaterial[]>([{ id: '1', recipeId: '', quantity: 1 }]);
-  const [results, setResults] = useState<MaterialRequirement[]>([]);
-  const [expandedResults, setExpandedResults] = useState<ExpandedRequirement[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  // 从localStorage读取保存的状态
+  const [targets, setTargets] = useState<TargetMaterial[]>(() => {
+    const saved = localStorage.getItem('calcTargets');
+    return saved ? JSON.parse(saved) : [{ id: '1', recipeId: '', quantity: 1 }];
+  });
+  const [results, setResults] = useState<MaterialRequirement[]>(() => {
+    const saved = localStorage.getItem('calcResults');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [expandedResults, setExpandedResults] = useState<ExpandedRequirement[]>(() => {
+    const saved = localStorage.getItem('calcExpandedResults');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showResults, setShowResults] = useState(() => {
+    const saved = localStorage.getItem('calcShowResults');
+    return saved ? saved === 'true' : false;
+  });
+
+  // 状态变化时保存到localStorage
+  useEffect(() => {
+    localStorage.setItem('calcTargets', JSON.stringify(targets));
+  }, [targets]);
+
+  useEffect(() => {
+    localStorage.setItem('calcResults', JSON.stringify(results));
+  }, [results]);
+
+  useEffect(() => {
+    localStorage.setItem('calcExpandedResults', JSON.stringify(expandedResults));
+  }, [expandedResults]);
+
+  useEffect(() => {
+    localStorage.setItem('calcShowResults', String(showResults));
+  }, [showResults]);
 
   // 添加一个目标材料
   const addTarget = () => {
