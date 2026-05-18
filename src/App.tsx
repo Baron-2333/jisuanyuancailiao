@@ -51,7 +51,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.7</span>
+                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.8</span>
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
                 本网站的代码100%由AI生成
@@ -327,33 +327,44 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
               </thead>
               <tbody>
                 {expandedResults.map((req) => {
-                  // 生成简化用途说明
-                  const usageTexts = req.usageDetails?.map((usage, idx) => {
-                    if (usage.forItem === req.materialName) {
-                      // 自我合成，显示"直接需要"
-                      return null;
+                  // 按最终产物分组，每组显示完整合成链
+                  const groupedByFinal = new Map<string, { materialQty: number; intermediateQty: number; finalQty: number }>();
+                  
+                  for (const usage of req.usageDetails || []) {
+                    const key = usage.forItem;
+                    if (groupedByFinal.has(key)) {
+                      const existing = groupedByFinal.get(key)!;
+                      existing.materialQty += usage.qty;
+                      existing.finalQty += usage.forQty;
+                    } else {
+                      // 估算中间产物数量（简化计算）
+                      const ratio = req.totalQuantity / usage.qty;
+                      groupedByFinal.set(key, {
+                        materialQty: usage.qty,
+                        intermediateQty: Math.ceil(usage.qty * ratio),
+                        finalQty: usage.forQty,
+                      });
                     }
-                    if (idx === 0) {
-                      return `其中${usage.qty}个做${usage.forQty}个${usage.forItem}`;
-                    }
-                    return `，${usage.qty}个做${usage.forQty}个${usage.forItem}`;
-                  }).filter(Boolean).join('');
+                  }
                   
                   return (
                     <tr key={req.materialId} className={cn("border-b", isDark ? "border-slate-700" : "border-gray-100")}>
                       <td className={cn("py-2 px-3 font-medium", isDark ? "text-slate-200" : "text-gray-800")}>
                         {req.materialName}
                       </td>
-                      <td className={cn("py-2 px-3 text-right", 
+                      <td className={cn("py-2 px-3 text-right align-top", 
                         req.totalQuantity > 64 ? (isDark ? "text-purple-400" : "text-purple-600") : (isDark ? "text-blue-400" : "text-blue-600")
                       )}>
                         <span className="font-semibold">{req.totalQuantity}</span>
-                        <span className={cn("ml-1 text-xs", isDark ? "text-slate-500" : "text-gray-400")}>
-                          ({req.usageDetails?.[0]?.qty || 0})
-                        </span>
                       </td>
                       <td className={cn("py-2 px-3 text-xs", isDark ? "text-slate-400" : "text-gray-500")}>
-                        {usageTexts || '-'}
+                        {Array.from(groupedByFinal.entries()).map(([finalItem, data], idx) => (
+                          <div key={idx} className="mb-1">
+                            其中<span className="font-medium">{data.materialQty}</span>个
+                            →做<span className="font-medium">{data.intermediateQty}</span>个中间产物
+                            →做成<span className="font-medium">{data.finalQty}</span>个{finalItem}
+                          </div>
+                        ))}
                       </td>
                     </tr>
                   );

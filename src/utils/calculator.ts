@@ -8,30 +8,37 @@ function ceilToInt(value: number): number {
   return Math.ceil(value);
 }
 
+// 合成链记录
+interface CraftChain {
+  material: string;      // 原材料名称
+  materialQty: number;   // 需要多少原材料
+  intermediate: string;  // 中间产物名称
+  intermediateQty: number; // 中间产物数量
+  final: string;         // 最终产物名称
+  finalQty: number;      // 最终产物数量
+}
+
 // 用途记录类型
 interface UsageRecord {
   quantity: number;
   craftCount: number;
   sources: Set<string>;
   usageDetails: UsageDetail[];
+  craftChain: CraftChain[];
 }
 
 /**
- * 递归计算目标物品所需的原材料
- * @param targetItemName 目标物品名称
- * @param targetQty 需要的目标物品数量
- * @param forItem 用于什么物品的合成
- * @param recipes 所有配方
- * @param materials 所有物品
- * @param materialRequirements 累计的原材料需求
+ * 递归计算目标物品所需的原材料，追踪完整合成链
  */
 function calculateForItem(
   targetItemName: string,
   targetQty: number,
-  forItem: string,
+  finalItem: string,
   recipes: Recipe[],
   materials: Material[],
-  materialRequirements: Map<string, UsageRecord>
+  materialRequirements: Map<string, UsageRecord>,
+  intermediateItem: string = '',
+  intermediateQty: number = 0
 ): void {
   // 查找该物品是否是原材料（开启状态）
   const material = materials.find(m => m.name === targetItemName);
@@ -41,13 +48,28 @@ function calculateForItem(
     const existing = materialRequirements.get(targetItemName);
     if (existing) {
       existing.quantity += targetQty;
-      existing.usageDetails.push({ forItem, forQty: targetQty, qty: targetQty });
+      existing.craftChain.push({
+        material: targetItemName,
+        materialQty: targetQty,
+        intermediate: intermediateItem || finalItem,
+        intermediateQty: intermediateQty || targetQty,
+        final: finalItem,
+        finalQty: targetQty,
+      });
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
         craftCount: 0,
-        sources: new Set([forItem]),
-        usageDetails: [{ forItem, forQty: targetQty, qty: targetQty }],
+        sources: new Set([finalItem]),
+        usageDetails: [{ forItem: finalItem, forQty: targetQty, qty: targetQty, craftCount: 1 }],
+        craftChain: [{
+          material: targetItemName,
+          materialQty: targetQty,
+          intermediate: intermediateItem || finalItem,
+          intermediateQty: intermediateQty || targetQty,
+          final: finalItem,
+          finalQty: targetQty,
+        }],
       });
     }
     return;
@@ -60,13 +82,28 @@ function calculateForItem(
     const existing = materialRequirements.get(targetItemName);
     if (existing) {
       existing.quantity += targetQty;
-      existing.usageDetails.push({ forItem, forQty: targetQty, qty: targetQty });
+      existing.craftChain.push({
+        material: targetItemName,
+        materialQty: targetQty,
+        intermediate: intermediateItem || finalItem,
+        intermediateQty: intermediateQty || targetQty,
+        final: finalItem,
+        finalQty: targetQty,
+      });
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
         craftCount: 0,
-        sources: new Set([forItem]),
-        usageDetails: [{ forItem, forQty: targetQty, qty: targetQty }],
+        sources: new Set([finalItem]),
+        usageDetails: [{ forItem: finalItem, forQty: targetQty, qty: targetQty, craftCount: 1 }],
+        craftChain: [{
+          material: targetItemName,
+          materialQty: targetQty,
+          intermediate: intermediateItem || finalItem,
+          intermediateQty: intermediateQty || targetQty,
+          final: finalItem,
+          finalQty: targetQty,
+        }],
       });
     }
     return;
@@ -74,19 +111,23 @@ function calculateForItem(
 
   // 计算需要多少次合成（向上取整到合成次数）
   const craftCount = ceilToInt(targetQty / recipe.outputQuantity);
+  // 实际产出数量
+  const actualOutput = craftCount * recipe.outputQuantity;
 
   // 遍历配方中的每个原材料
   for (const ingredient of recipe.ingredients) {
     const ingredientQtyNeeded = ingredient.quantity * craftCount;
 
-    // 递归计算该原材料，传入当前物品名称作为用途标记
+    // 递归计算该原材料，追踪合成链
     calculateForItem(
       ingredient.materialName,
       ingredientQtyNeeded,
-      targetItemName, // 记录用于什么物品
+      finalItem,
       recipes,
       materials,
-      materialRequirements
+      materialRequirements,
+      targetItemName,  // 当前物品作为中间产物
+      actualOutput     // 当前物品的实际产出数量
     );
   }
 }
@@ -105,9 +146,6 @@ export function performCalculation(
   // 累计的原材料需求
   const materialRequirements = new Map<string, UsageRecord>();
 
-  // 记录每个目标物品的直接原材料
-  const directTargets: { name: string; qty: number }[] = [];
-
   for (const target of targets) {
     const recipe = recipes.find(r => r.id === target.recipeId);
     if (!recipe) continue;
@@ -122,7 +160,7 @@ export function performCalculation(
     for (const ingredient of recipe.ingredients) {
       const ingredientQtyNeeded = ingredient.quantity * craftCount;
 
-      // 递归计算，传入目标物品名称作为用途标记
+      // 递归计算
       calculateForItem(
         ingredient.materialName,
         ingredientQtyNeeded,
@@ -148,17 +186,30 @@ export function performCalculation(
     };
     results.push(requirement);
 
-    // 处理用途详情，合并相同用途
-    const usageMap = new Map<string, number>();
-    for (const usage of data.usageDetails) {
-      const key = `${usage.forItem}×${usage.forQty}`;
-      usageMap.set(key, (usageMap.get(key) || 0) + usage.qty);
+    // 按最终产物合并合成链
+    const chainMap = new Map<string, CraftChain>();
+    for (const chain of data.craftChain) {
+      const key = `${chain.final}×${chain.finalQty}`;
+      if (chainMap.has(key)) {
+        const existing = chainMap.get(key)!;
+        existing.materialQty += chain.materialQty;
+        existing.intermediateQty += chain.intermediateQty;
+      } else {
+        chainMap.set(key, { ...chain });
+      }
     }
-    
+
+    // 生成用途详情
     const usageDetails: UsageDetail[] = [];
-    for (const [key, qty] of usageMap) {
-      const [forItem, forQtyStr] = key.split('×');
-      usageDetails.push({ forItem, forQty: parseInt(forQtyStr), qty });
+    for (const [key, chain] of chainMap) {
+      const [finalItem, finalQtyStr] = key.split('×');
+      const finalQty = parseInt(finalQtyStr);
+      usageDetails.push({
+        forItem: finalItem,
+        forQty: finalQty,
+        qty: chain.materialQty,
+        craftCount: ceilToInt(finalQty / (chain.intermediateQty / chain.craftCount || 1)),
+      });
     }
 
     expandedResults.push({

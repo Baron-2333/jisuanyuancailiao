@@ -52,6 +52,7 @@ export interface UsageDetail {
   forItem: string;      // 用于制作什么
   forQty: number;       // 用于多少数量
   qty: number;          // 需要多少原材料
+  craftCount: number;   // 合成次数
 }
 
 // 展开后的需求（带合成次数）
