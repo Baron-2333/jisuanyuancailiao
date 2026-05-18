@@ -8,14 +8,19 @@ function ceilToInt(value: number): number {
   return Math.ceil(value);
 }
 
-// 合成链记录
+// 产物链节点
+interface ChainNode {
+  name: string;       // 产物名称
+  qty: number;        // 数量
+}
+
+// 合成链记录（完整路径）
 interface CraftChain {
-  material: string;      // 原材料名称
+  material: string;      // 原材料名称（最底层）
   materialQty: number;   // 需要多少原材料
-  intermediate: string;  // 中间产物名称
-  intermediateQty: number; // 中间产物数量
-  final: string;         // 最终产物名称
-  finalQty: number;      // 最终产物数量
+  path: ChainNode[];     // 完整产物链：[{name, qty}, ...]
+  final: string;        // 最终产物名称
+  finalQty: number;     // 最终产物数量
 }
 
 // 用途记录类型
@@ -29,17 +34,6 @@ interface UsageRecord {
 
 /**
  * 递归计算目标物品所需的原材料，追踪完整合成链
- * 
- * @param targetItemName 当前要合成的物品名称
- * @param targetQty 需要的目标物品数量
- * @param finalItem 最终目标物品名称（最顶层）
- * @param finalQty 最终目标物品数量
- * @param recipes 所有配方
- * @param materials 所有物品
- * @param processes 所有加工程序
- * @param materialRequirements 累计的原材料需求
- * @param intermediateItem 上一层中间产物名称
- * @param intermediateQty 上一层中间产物数量（实际产出）
  */
 function calculateForItem(
   targetItemName: string,
@@ -51,7 +45,8 @@ function calculateForItem(
   processes: Process[],
   materialRequirements: Map<string, UsageRecord>,
   intermediateItem: string = '',
-  intermediateQty: number = 0
+  intermediateQty: number = 0,
+  currentPath: ChainNode[] = []
 ): void {
   // 查找该物品是否是原材料（开启状态）
   const material = materials.find(m => m.name === targetItemName);
@@ -61,8 +56,7 @@ function calculateForItem(
     const chain: CraftChain = {
       material: targetItemName,
       materialQty: targetQty,
-      intermediate: intermediateItem || '-',
-      intermediateQty: intermediateQty || targetQty,
+      path: [...currentPath, { name: targetItemName, qty: targetQty }],
       final: finalItem,
       finalQty: finalQty,
     };
@@ -86,12 +80,16 @@ function calculateForItem(
 
   // 查找该物品的配方（通过配方名称匹配）
   const recipe = recipes.find(r => r.name === targetItemName);
+  
+  // 添加当前产物到路径
+  const newPath = [...currentPath, { name: targetItemName, qty: targetQty }];
+  
   if (!recipe) {
     // 没有配方，检查是否有开启追溯的加工程序
     const traceProcess = processes.find(p => p.outputName === targetItemName && p.traceEnabled);
     
     if (traceProcess) {
-      // 有追溯：直接计算追溯的原材料，不记录当前物品
+      // 有追溯：直接计算追溯的原材料
       const inputQtyNeeded = ceilToInt(targetQty * traceProcess.inputQuantity / traceProcess.outputQuantity);
       calculateForItem(
         traceProcess.inputName,
@@ -102,18 +100,18 @@ function calculateForItem(
         materials,
         processes,
         materialRequirements,
-        targetItemName,  // 当前物品作为中间产物
-        targetQty
+        targetItemName,
+        targetQty,
+        [...newPath, { name: `${traceProcess.name}→${targetItemName}`, qty: targetQty }]
       );
-      return;  // 关键：不记录当前物品（被追溯替代）
+      return;
     }
     
     // 没有配方也没有追溯，作为不可拆解物品计入
     const chain: CraftChain = {
       material: targetItemName,
       materialQty: targetQty,
-      intermediate: intermediateItem || '-',
-      intermediateQty: intermediateQty || targetQty,
+      path: newPath,
       final: finalItem,
       finalQty: finalQty,
     };
@@ -135,9 +133,8 @@ function calculateForItem(
     return;
   }
 
-  // 计算需要多少次合成（向上取整到合成次数）
+  // 计算需要多少次合成
   const craftCount = ceilToInt(targetQty / recipe.outputQuantity);
-  // 实际产出数量 = 合成次数 × 每次产出
   const actualOutput = craftCount * recipe.outputQuantity;
 
   // 遍历配方中的每个原材料
@@ -145,8 +142,6 @@ function calculateForItem(
     const ingredientQtyNeeded = ingredient.quantity * craftCount;
 
     // 递归计算该原材料
-    // 当前物品(targetItemName)作为下一层的中间产物
-    // actualOutput是实际产出数量（包含溢出的部分）
     calculateForItem(
       ingredient.materialName,
       ingredientQtyNeeded,
@@ -156,10 +151,30 @@ function calculateForItem(
       materials,
       processes,
       materialRequirements,
-      targetItemName,  // 当前物品作为中间产物
-      actualOutput     // 当前物品的实际产出数量
+      targetItemName,
+      actualOutput,
+      newPath
     );
   }
+}
+
+/**
+ * 格式化产物链为展示文本
+ */
+function formatChainPath(path: ChainNode[], craftChain: CraftChain): string {
+  if (path.length <= 1) return '';
+  
+  // 从原材料到最终产物的完整路径
+  // path: [原材料, 中间产物1, 中间产物2, ..., 最终产物]
+  // 需要展示：→做成X个中间产物1→做成X个中间产物2...→做成X个最终产物
+  
+  const parts: string[] = [];
+  for (let i = 1; i < path.length; i++) {
+    const node = path[i];
+    parts.push(`做成${node.qty}个${node.name}`);
+  }
+  
+  return parts.length > 0 ? '（' + parts.join('→') + '）' : '';
 }
 
 /**
@@ -200,7 +215,10 @@ export function performCalculation(
         recipes,
         materials,
         processes,
-        materialRequirements
+        materialRequirements,
+        '',  // intermediateItem
+        0,   // intermediateQty
+        []   // currentPath
       );
     }
   }
@@ -219,54 +237,52 @@ export function performCalculation(
     };
     results.push(requirement);
 
-    // 按（最终产物，中间产物）分组合成链，相同分组合并数量
-    const chainMap = new Map<string, CraftChain>();
-    for (const chain of data.craftChain) {
-      // 使用"最终产物@中间产物"作为分组键
-      const key = `${chain.final}×${chain.finalQty}@${chain.intermediate}×${chain.intermediateQty}`;
-      if (chainMap.has(key)) {
-        const existing = chainMap.get(key)!;
-        existing.materialQty += chain.materialQty;
-      } else {
-        chainMap.set(key, { ...chain });
-      }
-    }
-
-    // 生成用途详情（按最终产物合并）
-    const finalMap = new Map<string, { 
-      materialQty: number; 
-      intermediate: string; 
-      intermediateQty: number;
-      finalQty: number;
-    }>();
-    
-    for (const [key, chain] of chainMap) {
-      const finalKey = `${chain.final}×${chain.finalQty}`;
-      if (finalMap.has(finalKey)) {
-        const existing = finalMap.get(finalKey)!;
-        existing.materialQty += chain.materialQty;
-        // 中间产物数量应该相同，不需要累加
-      } else {
-        finalMap.set(finalKey, {
-          materialQty: chain.materialQty,
-          intermediate: chain.intermediate,
-          intermediateQty: chain.intermediateQty,
-          finalQty: chain.finalQty,
-        });
-      }
-    }
-
+    // 生成用途详情（带完整产物链）
     const usageDetails: UsageDetail[] = [];
+    
+    // 按最终产物分组
+    const finalMap = new Map<string, { chains: CraftChain[] }>();
+    
+    for (const chain of data.craftChain) {
+      const key = `${chain.final}×${chain.finalQty}`;
+      if (finalMap.has(key)) {
+        finalMap.get(key)!.chains.push(chain);
+      } else {
+        finalMap.set(key, { chains: [chain] });
+      }
+    }
+    
     for (const [key, info] of finalMap) {
       const [finalItem, finalQtyStr] = key.split('×');
-      usageDetails.push({
-        forItem: finalItem,
-        forQty: parseInt(finalQtyStr),
-        qty: info.materialQty,
-        craftCount: 1,
-        intermediate: info.intermediate === '-' ? finalItem : info.intermediate,
-        intermediateQty: info.intermediate === '-' ? info.finalQty : info.intermediateQty,
-      });
+      const finalQty = parseInt(finalQtyStr);
+      
+      // 合并相同路径的链
+      const pathMap = new Map<string, { totalQty: number; chain: CraftChain }>();
+      
+      for (const chain of info.chains) {
+        const pathKey = chain.path.map(p => `${p.name}×${p.qty}`).join('|');
+        if (pathMap.has(pathKey)) {
+          pathMap.get(pathKey)!.totalQty += chain.materialQty;
+        } else {
+          pathMap.set(pathKey, { totalQty: chain.materialQty, chain });
+        }
+      }
+      
+      for (const [, info] of pathMap) {
+        const { totalQty, chain } = info;
+        const chainText = formatChainPath(chain.path, chain);
+        
+        usageDetails.push({
+          forItem: finalItem,
+          forQty: finalQty,
+          qty: totalQty,
+          craftCount: 1,
+          intermediate: chain.path.length > 1 ? chain.path[chain.path.length - 1].name : finalItem,
+          intermediateQty: chain.path.length > 1 ? chain.path[chain.path.length - 1].qty : finalQty,
+          chainPath: chain.path,
+          chainText: chainText,
+        });
+      }
     }
 
     expandedResults.push({

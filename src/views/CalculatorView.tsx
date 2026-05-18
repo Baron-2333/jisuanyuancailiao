@@ -214,6 +214,17 @@ export function CalculatorView({ materials, recipes, onCalculated }: CalculatorV
                       </td>
                       <td className="py-2 px-3 text-xs text-slate-400">
                         {req.usageDetails?.map((usage, idx) => {
+                          // 如果有完整的产物链文本，直接显示
+                          if (usage.chainText) {
+                            return (
+                              <div key={idx} className="mb-1">
+                                <span className="font-bold text-red-400">其中{usage.qty}个</span>
+                                <span className="text-green-400">{usage.chainText}</span>
+                              </div>
+                            );
+                          }
+                          
+                          // 兼容旧的显示逻辑
                           const hasIntermediate = usage.intermediate && usage.intermediate !== usage.forItem && usage.intermediate !== req.materialName;
                           const traceProcess = hasIntermediate ? processes.find(p => p.outputName === usage.intermediate && p.traceEnabled) : null;
 

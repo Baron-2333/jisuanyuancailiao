@@ -58,6 +58,12 @@ export interface TargetConfig {
   quantity: number;
 }
 
+// 产物链节点
+export interface ChainNode {
+  name: string;    // 产物名称
+  qty: number;     // 数量
+}
+
 // 用途详情
 export interface UsageDetail {
   forItem: string;      // 最终产物名称
@@ -66,6 +72,8 @@ export interface UsageDetail {
   craftCount: number;   // 合成次数
   intermediate: string; // 中间产物名称
   intermediateQty: number; // 中间产物数量
+  chainPath?: ChainNode[];  // 完整产物链（可选）
+  chainText?: string;      // 格式化后的产物链文本（可选）
 }
 
 // 展开后的需求（带合成次数）
