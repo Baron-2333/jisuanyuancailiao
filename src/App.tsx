@@ -3,7 +3,7 @@ import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, D
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe, getProcesses, addProcess, updateProcess, deleteProcess } from './utils/storage';
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, Process, ProcessTraceInfo, getPinyin } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, Process, getPinyin } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
 import { supabase } from './utils/supabase';
@@ -257,6 +257,9 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
     const saved = localStorage.getItem('calcShowResults');
     return saved ? saved === 'true' : false;
   });
+
+  // 获取加工程序（用于展示追溯信息）
+  const processes = getProcesses();
 
   // 状态变化时保存到localStorage
   useEffect(() => {
@@ -538,31 +541,33 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                         {req.usageDetails?.map((usage, idx) => {
                           // 如果中间产物就是最终产物，说明没有中间步骤（直接合成）
                           const hasIntermediate = usage.intermediate && usage.intermediate !== usage.forItem && usage.intermediate !== req.materialName;
+                          // 检查中间产物是否有开启追溯的加工程序
+                          const traceProcess = hasIntermediate ? processes.find(p => p.outputName === usage.intermediate && p.traceEnabled) : null;
                           
                           return (
                             <div key={idx} className="mb-1">
                               其中<span className="font-medium">{usage.qty}</span>个
                               {hasIntermediate ? (
                                 <>
-                                  →做<span className="font-medium">{usage.intermediateQty}</span>个{usage.intermediate}
-                                  →做成<span className="font-medium">{usage.forQty}</span>个{usage.forItem}
+                                  {traceProcess ? (
+                                    // 中间产物有追溯
+                                    <>
+                                      →通过<span className={cn("font-medium", isDark ? "text-green-400" : "text-green-600")}>[{traceProcess.name}]</span>
+                                      {' '}<span className="font-medium">({usage.intermediate}×{usage.intermediateQty})</span>
+                                      →做成<span className="font-medium">{usage.forQty}</span>个{usage.forItem}
+                                    </>
+                                  ) : (
+                                    // 正常显示
+                                    <>
+                                      →做<span className="font-medium">{usage.intermediateQty}</span>个{usage.intermediate}
+                                      →做成<span className="font-medium">{usage.forQty}</span>个{usage.forItem}
+                                    </>
+                                  )}
                                 </>
                               ) : (
                                 <>
                                   →做成<span className="font-medium">{usage.forQty}</span>个{usage.forItem}
                                 </>
-                              )}
-                              {/* 显示追溯链路 */}
-                              {req.processTrace && (
-                                <div className={cn("mt-1 pl-2 border-l-2", isDark ? "border-green-600" : "border-green-400")}>
-                                  <span className={cn("text-green-500", isDark ? "text-green-400" : "text-green-600")}>
-                                    └─ [{req.processTrace.processName}]
-                                  </span>
-                                  {' '}→{' '}
-                                  <span className="font-medium">
-                                    {req.processTrace.inputName} × {req.processTrace.inputQuantity}
-                                  </span>
-                                </div>
                               )}
                             </div>
                           );

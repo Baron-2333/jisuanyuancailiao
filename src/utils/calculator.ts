@@ -1,4 +1,4 @@
-import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement, UsageDetail, Process, ProcessTraceInfo } from '../types';
+import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement, UsageDetail, Process } from '../types';
 import { getRecipes, getMaterials, getProcesses, addHistory, generateId, addMaterial } from './storage';
 
 /**
@@ -25,8 +25,6 @@ interface UsageRecord {
   sources: Set<string>;
   usageDetails: UsageDetail[];
   craftChain: CraftChain[];
-  // 追溯信息：记录这个材料是否来自加工程序
-  processTrace?: ProcessTraceInfo;
 }
 
 /**
@@ -89,24 +87,14 @@ function calculateForItem(
   // 查找该物品的配方（通过配方名称匹配）
   const recipe = recipes.find(r => r.name === targetItemName);
   if (!recipe) {
-    // 没有配方，检查是否有对应的加工程序且开启追溯
-    const process = processes.find(p => p.outputName === targetItemName && p.traceEnabled);
+    // 没有配方，检查是否有开启追溯的加工程序
+    const traceProcess = processes.find(p => p.outputName === targetItemName && p.traceEnabled);
     
-    // 记录追溯信息（如果有）
-    let processTrace: ProcessTraceInfo | undefined;
-    if (process) {
-      processTrace = {
-        processName: process.name,
-        processStep: process.processStep,
-        inputName: process.inputName,
-        inputQuantity: process.inputQuantity,
-      };
-      
-      // 如果开启追溯，递归计算追溯的原材料
-      // 需要根据产出数量反推需要的输入数量
-      const inputQtyNeeded = ceilToInt(targetQty * process.inputQuantity / process.outputQuantity);
+    if (traceProcess) {
+      // 有追溯：直接计算追溯的原材料，不记录当前物品
+      const inputQtyNeeded = ceilToInt(targetQty * traceProcess.inputQuantity / traceProcess.outputQuantity);
       calculateForItem(
-        process.inputName,
+        traceProcess.inputName,
         inputQtyNeeded,
         finalItem,
         finalQty,
@@ -114,12 +102,13 @@ function calculateForItem(
         materials,
         processes,
         materialRequirements,
-        targetItemName,
+        targetItemName,  // 当前物品作为中间产物
         targetQty
       );
+      return;  // 关键：不记录当前物品（被追溯替代）
     }
     
-    // 将该物品计入（作为最终需求或中间产物）
+    // 没有配方也没有追溯，作为不可拆解物品计入
     const chain: CraftChain = {
       material: targetItemName,
       materialQty: targetQty,
@@ -134,10 +123,6 @@ function calculateForItem(
       existing.quantity += targetQty;
       existing.craftChain.push(chain);
       existing.sources.add(finalItem);
-      // 如果之前没有追溯信息但现在有，添加追溯信息
-      if (!existing.processTrace && processTrace) {
-        existing.processTrace = processTrace;
-      }
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
@@ -145,7 +130,6 @@ function calculateForItem(
         sources: new Set([finalItem]),
         usageDetails: [],
         craftChain: [chain],
-        processTrace,
       });
     }
     return;
@@ -290,7 +274,6 @@ export function performCalculation(
       craftCount: data.craftCount,
       fromTargets: Array.from(data.sources),
       usageDetails,
-      processTrace: data.processTrace,
     });
   }
 
