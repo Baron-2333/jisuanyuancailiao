@@ -6,40 +6,47 @@ import { Material, Recipe } from '../types';
  */
 export async function getUserDataFromDB(userId: string): Promise<{ materials: Material[]; recipes: Recipe[] }> {
   try {
-    const { data: settings, error } = await supabase
+    // 先尝试获取用户自己的数据
+    const { data: ownSettings, error: ownError } = await supabase
       .from('user_settings')
       .select('setting_key, setting_value')
       .eq('user_id', userId);
 
-    if (error) {
-      console.error('获取用户数据失败:', error);
-      return { materials: [], recipes: [] };
-    }
-
     let materials: Material[] = [];
     let recipes: Recipe[] = [];
 
-    for (const row of settings || []) {
-      if (row.setting_key === 'materials' && row.setting_value) {
-        try {
-          materials = JSON.parse(row.setting_value);
-        } catch (e) {
-          console.error('解析 materials 失败:', e);
+    // 如果获取到数据，处理它
+    if (ownSettings && ownSettings.length > 0) {
+      for (const row of ownSettings) {
+        if (row.setting_key === 'materials' && row.setting_value) {
+          try {
+            materials = JSON.parse(row.setting_value);
+          } catch (e) {
+            console.error('解析 materials 失败:', e);
+          }
+        }
+        if (row.setting_key === 'recipes' && row.setting_value) {
+          try {
+            recipes = JSON.parse(row.setting_value);
+          } catch (e) {
+            console.error('解析 recipes 失败:', e);
+          }
         }
       }
-      if (row.setting_key === 'recipes' && row.setting_value) {
-        try {
-          recipes = JSON.parse(row.setting_value);
-        } catch (e) {
-          console.error('解析 recipes 失败:', e);
-        }
+      
+      // 如果用户有自己的数据，直接返回
+      if (materials.length > 0 || recipes.length > 0) {
+        return { materials, recipes };
       }
     }
 
-    return { materials, recipes };
+    // 如果用户没有数据，尝试获取 admin 数据
+    const adminData = await getAdminData();
+    return adminData;
   } catch (e) {
     console.error('获取用户数据异常:', e);
-    return { materials: [], recipes: [] };
+    // 出错时也尝试获取 admin 数据
+    return await getAdminData();
   }
 }
 
