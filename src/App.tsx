@@ -3,7 +3,7 @@ import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, D
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe, getProcesses, addProcess, updateProcess, deleteProcess } from './utils/storage';
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, Process, getPinyin } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, Process, ProcessTraceInfo, getPinyin } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
 import { supabase } from './utils/supabase';
@@ -551,6 +551,18 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                                 <>
                                   →做成<span className="font-medium">{usage.forQty}</span>个{usage.forItem}
                                 </>
+                              )}
+                              {/* 显示追溯链路 */}
+                              {req.processTrace && (
+                                <div className={cn("mt-1 pl-2 border-l-2", isDark ? "border-green-600" : "border-green-400")}>
+                                  <span className={cn("text-green-500", isDark ? "text-green-400" : "text-green-600")}>
+                                    └─ [{req.processTrace.processName}]
+                                  </span>
+                                  {' '}→{' '}
+                                  <span className="font-medium">
+                                    {req.processTrace.inputName} × {req.processTrace.inputQuantity}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           );

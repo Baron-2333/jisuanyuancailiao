@@ -68,11 +68,20 @@ export interface UsageDetail {
   intermediateQty: number; // 中间产物数量
 }
 
+// 加工程序追溯信息
+export interface ProcessTraceInfo {
+  processName: string;      // 工序名称（如"压制"）
+  processStep: string;     // 加工步骤描述
+  inputName: string;       // 原材料名称
+  inputQuantity: number;   // 原材料数量
+}
+
 // 展开后的需求（带合成次数）
 export interface ExpandedRequirement extends MaterialRequirement {
   craftCount: number; // 需要合成的次数
   fromTargets: string[]; // 来源：哪些目标物品需要它
   usageDetails: UsageDetail[]; // 详细用途
+  processTrace?: ProcessTraceInfo; // 追溯信息（如果有对应的加工程序且开启追溯）
 }
 
 // 加工程序类型

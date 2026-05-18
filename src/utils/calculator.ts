@@ -1,5 +1,5 @@
-import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement, UsageDetail } from '../types';
-import { getRecipes, getMaterials, addHistory, generateId, addMaterial } from './storage';
+import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement, UsageDetail, Process, ProcessTraceInfo } from '../types';
+import { getRecipes, getMaterials, getProcesses, addHistory, generateId, addMaterial } from './storage';
 
 /**
  * 向上取整到最近的整数
@@ -25,6 +25,8 @@ interface UsageRecord {
   sources: Set<string>;
   usageDetails: UsageDetail[];
   craftChain: CraftChain[];
+  // 追溯信息：记录这个材料是否来自加工程序
+  processTrace?: ProcessTraceInfo;
 }
 
 /**
@@ -36,6 +38,7 @@ interface UsageRecord {
  * @param finalQty 最终目标物品数量
  * @param recipes 所有配方
  * @param materials 所有物品
+ * @param processes 所有加工程序
  * @param materialRequirements 累计的原材料需求
  * @param intermediateItem 上一层中间产物名称
  * @param intermediateQty 上一层中间产物数量（实际产出）
@@ -47,6 +50,7 @@ function calculateForItem(
   finalQty: number,
   recipes: Recipe[],
   materials: Material[],
+  processes: Process[],
   materialRequirements: Map<string, UsageRecord>,
   intermediateItem: string = '',
   intermediateQty: number = 0
@@ -85,7 +89,37 @@ function calculateForItem(
   // 查找该物品的配方（通过配方名称匹配）
   const recipe = recipes.find(r => r.name === targetItemName);
   if (!recipe) {
-    // 没有配方，将其作为不可拆解物品计入
+    // 没有配方，检查是否有对应的加工程序且开启追溯
+    const process = processes.find(p => p.outputName === targetItemName && p.traceEnabled);
+    
+    // 记录追溯信息（如果有）
+    let processTrace: ProcessTraceInfo | undefined;
+    if (process) {
+      processTrace = {
+        processName: process.name,
+        processStep: process.processStep,
+        inputName: process.inputName,
+        inputQuantity: process.inputQuantity,
+      };
+      
+      // 如果开启追溯，递归计算追溯的原材料
+      // 需要根据产出数量反推需要的输入数量
+      const inputQtyNeeded = ceilToInt(targetQty * process.inputQuantity / process.outputQuantity);
+      calculateForItem(
+        process.inputName,
+        inputQtyNeeded,
+        finalItem,
+        finalQty,
+        recipes,
+        materials,
+        processes,
+        materialRequirements,
+        targetItemName,
+        targetQty
+      );
+    }
+    
+    // 将该物品计入（作为最终需求或中间产物）
     const chain: CraftChain = {
       material: targetItemName,
       materialQty: targetQty,
@@ -100,6 +134,10 @@ function calculateForItem(
       existing.quantity += targetQty;
       existing.craftChain.push(chain);
       existing.sources.add(finalItem);
+      // 如果之前没有追溯信息但现在有，添加追溯信息
+      if (!existing.processTrace && processTrace) {
+        existing.processTrace = processTrace;
+      }
     } else {
       materialRequirements.set(targetItemName, {
         quantity: targetQty,
@@ -107,6 +145,7 @@ function calculateForItem(
         sources: new Set([finalItem]),
         usageDetails: [],
         craftChain: [chain],
+        processTrace,
       });
     }
     return;
@@ -131,6 +170,7 @@ function calculateForItem(
       finalQty,
       recipes,
       materials,
+      processes,
       materialRequirements,
       targetItemName,  // 当前物品作为中间产物
       actualOutput     // 当前物品的实际产出数量
@@ -148,6 +188,7 @@ export function performCalculation(
 
   const recipes = getRecipes();
   const materials = getMaterials();
+  const processes = getProcesses();
   
   // 累计的原材料需求
   const materialRequirements = new Map<string, UsageRecord>();
@@ -174,6 +215,7 @@ export function performCalculation(
         targetQty,
         recipes,
         materials,
+        processes,
         materialRequirements
       );
     }
@@ -248,6 +290,7 @@ export function performCalculation(
       craftCount: data.craftCount,
       fromTargets: Array.from(data.sources),
       usageDetails,
+      processTrace: data.processTrace,
     });
   }
 
