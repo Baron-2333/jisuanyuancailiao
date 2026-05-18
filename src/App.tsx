@@ -48,18 +48,12 @@ export default function App() {
     let localRecipes = getRecipes();
     const localHistory = getHistory();
 
-    // 迁移：为已有的配方添加 pinyin 字段
-    let needSave = false;
-    localRecipes = localRecipes.map(recipe => {
-      if (!recipe.pinyin) {
-        needSave = true;
-        return { ...recipe, pinyin: getPinyin(recipe.name) };
-      }
-      return recipe;
-    });
-    if (needSave) {
-      saveRecipes(localRecipes);
-    }
+    // 迁移：始终根据最新映射表重新计算 pinyin
+    localRecipes = localRecipes.map(recipe => ({
+      ...recipe,
+      pinyin: getPinyin(recipe.name)
+    }));
+    saveRecipes(localRecipes);
 
     // 检查是否登录
     const { data: { session } } = await supabase.auth.getSession();
@@ -68,13 +62,11 @@ export default function App() {
     if (currentUserId) {
       // 登录用户：从 Supabase 同步数据（强制覆盖本地缓存）
       const userData = await getUserDataFromDB(currentUserId);
-      // 迁移：为数据库的配方添加 pinyin
-      const migratedRecipes = userData.recipes.map(recipe => {
-        if (!recipe.pinyin) {
-          return { ...recipe, pinyin: getPinyin(recipe.name) };
-        }
-        return recipe;
-      });
+      // 迁移：始终重新计算 pinyin
+      const migratedRecipes = userData.recipes.map(recipe => ({
+        ...recipe,
+        pinyin: getPinyin(recipe.name)
+      }));
       setMaterials(userData.materials);
       setRecipes(migratedRecipes);
       saveMaterials(userData.materials);
@@ -89,10 +81,10 @@ export default function App() {
       const adminData = await getAdminData();
       console.log('[DEBUG loadData] 从admin加载的配方数量:', adminData.recipes.length);
       if (adminData.materials.length > 0 || adminData.recipes.length > 0) {
-        // 迁移：为 admin 数据添加 pinyin
+        // 迁移：始终重新计算 pinyin
         const migratedRecipes = adminData.recipes.map(recipe => ({
           ...recipe,
-          pinyin: recipe.pinyin || getPinyin(recipe.name)
+          pinyin: getPinyin(recipe.name)
         }));
         setMaterials(adminData.materials);
         setRecipes(migratedRecipes);
