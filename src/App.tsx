@@ -5,6 +5,7 @@ import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMa
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
 import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
 import { UserSettingsView } from './UserSettingsView';
+import { VERSION, BUILD_TIME } from './utils/version';
 
 // Tab类型
 type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
@@ -53,10 +54,10 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-gray-800")}>
-                Minecraft 配方计算器 <span className="text-xs text-slate-500 ml-1">v0.1.11</span>
+                Minecraft 配方计算器
               </h1>
               <p className={cn("text-sm mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
-                本网站的代码100%由AI生成
+                {VERSION} · {BUILD_TIME}
               </p>
             </div>
           </div>
