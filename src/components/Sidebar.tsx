@@ -41,6 +41,10 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         ))}
       </nav>
 
+      {/* 底部信息 */}
+      <div className="p-4 border-t border-[#1e1e2e]">
+        <p className="text-[11px] text-slate-600">代码100%由AI生成</p>
+      </div>
     </aside>
   );
 }
