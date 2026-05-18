@@ -1,308 +1,223 @@
-import { Recipe, Material, MaterialRequirement, RecipeConfig, CalculationHistory } from '../types';
-import { getRecipes, getMaterials, getTraceableMaterials, addHistory, generateId } from './storage';
+import { Recipe, Material, MaterialRequirement, TargetConfig, CalculationHistory, ExpandedRequirement } from '../types';
+import { getRecipes, getMaterials, addHistory, generateId } from './storage';
 
-// 目标材料配置
-export interface TargetConfig {
-  recipeId: string;
-  quantity: number;
-}
-
-// 是否保存历史记录的标记
-let shouldSaveHistory = true;
-
-// 控制是否保存历史记录
-export function setSaveHistory(shouldSave: boolean): void {
-  shouldSaveHistory = shouldSave;
-}
-
-// 展开后的原材料需求（带层级信息）
-export interface ExpandedRequirement {
-  materialId: string;
-  materialName: string;
-  quantity: number;
-  unit: string;
-  // 配方链/加工步骤
-  steps: { recipeName: string; quantity: number }[];
+/**
+ * 向上取整到最近的整数
+ */
+function ceilToInt(value: number): number {
+  return Math.ceil(value);
 }
 
 /**
- * 递归计算配方所需的最终原材料
- * 支持多层级：锯子需要铁板，铁板需要铁锭
+ * 递归计算目标物品所需的原材料
+ * @param targetItemId 目标物品ID
+ * @param targetQty 需要的目标物品数量
+ * @param recipes 所有配方
+ * @param materials 所有物品
+ * @param materialRequirements 累计的原材料需求（带合成次数）
+ * @param fromTargets 来源目标列表（用于追踪）
  */
-export function calculateExpandedRequirements(
-  recipeId: string,
-  targetQuantity: number,
+function calculateForItem(
+  targetItemId: string,
+  targetQty: number,
   recipes: Recipe[],
   materials: Material[],
-  currentSteps: { recipeName: string; quantity: number }[] = []
-): ExpandedRequirement[] {
-  const recipe = recipes.find(r => r.id === recipeId);
-  if (!recipe) return [];
-
-  const multiplier = targetQuantity / recipe.outputQuantity;
-  const newSteps = [...currentSteps, { recipeName: recipe.name, quantity: targetQuantity }];
+  materialRequirements: Map<string, { quantity: number; craftCount: number; fromTargets: Set<string> }>,
+  fromTargets: string[]
+): void {
+  const material = materials.find(m => m.id === targetItemId || m.name === targetItemId);
   
-  const requirements: Map<string, ExpandedRequirement> = new Map();
-
-  for (const ingredient of recipe.ingredients) {
-    const totalQty = ingredient.quantity * multiplier;
-    const material = materials.find(m => m.id === ingredient.materialId);
-    
-    // 检查是否是配方类型（recipe:前缀）
-    if (ingredient.materialId.startsWith('recipe:')) {
-      const subRecipeId = ingredient.materialId.replace('recipe:', '');
-      const subRecipe = recipes.find(r => r.id === subRecipeId);
-      if (subRecipe) {
-        // 递归计算子配方的原材料
-        const subRequirements = calculateExpandedRequirements(
-          subRecipe.id,
-          totalQty,
-          recipes,
-          materials,
-          newSteps
-        );
-        
-        // 合并子需求
-        for (const subReq of subRequirements) {
-          if (requirements.has(subReq.materialId)) {
-            const existing = requirements.get(subReq.materialId)!;
-            existing.quantity += subReq.quantity;
-          } else {
-            requirements.set(subReq.materialId, { ...subReq });
-          }
-        }
-      }
-      continue;
-    }
-    
-    // 这是最终原材料（只有显式使用 recipe: 前缀才会展开子配方）
-    if (requirements.has(ingredient.materialId)) {
-      const existing = requirements.get(ingredient.materialId)!;
-      existing.quantity += totalQty;
+  // 如果是原材料（开启状态），直接计入
+  if (material?.isRawMaterial) {
+    const existing = materialRequirements.get(material.id);
+    if (existing) {
+      existing.quantity += targetQty;
+      fromTargets.forEach(t => existing.fromTargets.add(t));
     } else {
-      requirements.set(ingredient.materialId, {
-        materialId: ingredient.materialId,
-        materialName: ingredient.materialName,
-        quantity: totalQty,
-        unit: material?.unit || '个',
-        steps: newSteps,
+      materialRequirements.set(material.id, {
+        quantity: targetQty,
+        craftCount: 0, // 原材料不需要合成
+        fromTargets: new Set(fromTargets),
       });
     }
+    return;
   }
 
-  return Array.from(requirements.values()).sort((a, b) => 
-    a.materialName.localeCompare(b.materialName)
-  );
-}
-
-/**
- * 计算指定配方所需的直接原材料（不展开子配方）
- */
-export function calculateRequirements(
-  recipeId: string,
-  targetQuantity: number,
-  recipes: Recipe[],
-  materials: Material[]
-): MaterialRequirement[] {
-  const recipe = recipes.find(r => r.id === recipeId);
-  if (!recipe) return [];
-
-  const requirements: Map<string, MaterialRequirement> = new Map();
-  const multiplier = targetQuantity / recipe.outputQuantity;
-
-  for (const ingredient of recipe.ingredients) {
-    const totalQty = ingredient.quantity * multiplier;
-    const material = materials.find(m => m.id === ingredient.materialId);
-
-    if (requirements.has(ingredient.materialId)) {
-      const existing = requirements.get(ingredient.materialId)!;
-      existing.totalQuantity += totalQty;
+  // 查找该物品的配方
+  const recipe = recipes.find(r => r.name === material?.name || r.id === targetItemId);
+  if (!recipe) {
+    // 没有配方，将其作为原材料计入
+    const targetName = material?.name || targetItemId;
+    const existing = materialRequirements.get(targetItemId);
+    if (existing) {
+      existing.quantity += targetQty;
+      fromTargets.forEach(t => existing.fromTargets.add(t));
     } else {
-      requirements.set(ingredient.materialId, {
-        materialId: ingredient.materialId,
-        materialName: ingredient.materialName,
-        totalQuantity: totalQty,
-        unit: material?.unit || '个',
+      materialRequirements.set(targetItemId, {
+        quantity: targetQty,
+        craftCount: 0,
+        fromTargets: new Set(fromTargets),
       });
     }
+    return;
   }
 
-  return Array.from(requirements.values()).sort((a, b) => 
-    a.materialName.localeCompare(b.materialName)
-  );
-}
+  // 计算需要多少次合成（向上取整）
+  const craftCount = ceilToInt(targetQty / recipe.outputQuantity);
+  const actualOutput = craftCount * recipe.outputQuantity;
 
-/**
- * 应用溯源配置：将可溯源材料转换为目标材料并合并数量
- * 例如：铁块 → 铁锭，5个铁块转换为45个铁锭，并记录溯源来源
- */
-function applyTraceableMerge(
-  requirements: Map<string, ExpandedRequirement>,
-  traceableMaterials: TraceableMaterial[],
-  materials: Material[]
-): { merged: Map<string, ExpandedRequirement>; traceNotes: Map<string, string> } {
-  const merged = new Map<string, ExpandedRequirement>();
-  const traceSourceMap = new Map<string, Map<string, number>>(); // targetId -> sourceName -> sourceQty
-
-  for (const req of requirements.values()) {
-    const trace = traceableMaterials.find(t => t.materialId === req.materialId);
-    if (trace) {
-      const targetId = trace.targetMaterialId;
-      const convertedQty = req.quantity * trace.targetQuantity;
-
-      const existing = merged.get(targetId);
-      if (existing) {
-        existing.quantity += convertedQty;
-      } else {
-        merged.set(targetId, {
-          materialId: targetId,
-          materialName: trace.targetMaterialName,
-          quantity: convertedQty,
-          unit: materials.find(m => m.id === targetId)?.unit || req.unit,
-          steps: req.steps,
-        });
-      }
-
-      const sourceMap = traceSourceMap.get(targetId) || new Map<string, number>();
-      sourceMap.set(trace.materialName, (sourceMap.get(trace.materialName) || 0) + req.quantity);
-      traceSourceMap.set(targetId, sourceMap);
-    } else {
-      const existing = merged.get(req.materialId);
-      if (existing) {
-        existing.quantity += req.quantity;
-      } else {
-        merged.set(req.materialId, { ...req });
-      }
-    }
-  }
-
-  const traceNotes = new Map<string, string>();
-  for (const [targetId, sourceMap] of traceSourceMap) {
-    const notes = Array.from(sourceMap.entries())
-      .map(([name, qty]) => `${qty}个${name}`)
-      .join('、');
-    traceNotes.set(targetId, `包含${notes}`);
-  }
-
-  return { merged, traceNotes };
-}
-
-/**
- * 检查配方中是否有子配方（用于标识二次加工）
- */
-export function hasSubRecipes(recipeId: string, recipes: Recipe[], materials: Material[]): boolean {
-  const recipe = recipes.find(r => r.id === recipeId);
-  if (!recipe) return false;
-
+  // 遍历配方中的每个原材料
   for (const ingredient of recipe.ingredients) {
-    const material = materials.find(m => m.id === ingredient.materialId);
-    const subRecipe = recipes.find(r => r.name === material?.name);
-    if (subRecipe) return true;
+    // 计算该原材料需要的总量
+    // 如果这次合成产出了 actualOutput 个目标物品，需要 ingredient.quantity * craftCount 个该原材料
+    const ingredientQtyNeeded = ingredient.quantity * craftCount;
+
+    // 递归计算该原材料
+    calculateForItem(
+      ingredient.materialId,
+      ingredientQtyNeeded,
+      recipes,
+      materials,
+      materialRequirements,
+      fromTargets
+    );
   }
-  return false;
 }
 
 /**
- * 执行批量计算并保存历史记录
- * 格式: [目标材料1*数量]+[目标材料2*数量]+[时间]
+ * 执行批量计算
+ * @param targets 目标配置列表
+ * @returns 计算结果
  */
 export function performCalculation(
-  targets: TargetConfig[],
-  expandSubRecipes: boolean = true
-): { results: MaterialRequirement[]; expandedResults?: ExpandedRequirement[]; traceNotes?: Map<string, string> } | null {
+  targets: TargetConfig[]
+): { results: MaterialRequirement[]; expandedResults: ExpandedRequirement[] } | null {
   if (targets.length === 0) return null;
 
   const recipes = getRecipes();
   const materials = getMaterials();
-  const traceableMaterials = getTraceableMaterials();
-  const combinedRequirements: Map<string, MaterialRequirement> = new Map();
-  const combinedExpanded: Map<string, ExpandedRequirement> = new Map();
-  const targetSummaries: string[] = [];
+  
+  // 累计的原材料需求
+  const materialRequirements = new Map<string, { quantity: number; craftCount: number; fromTargets: Set<string> }>();
 
   for (const target of targets) {
     const recipe = recipes.find(r => r.id === target.recipeId);
     if (!recipe) continue;
 
-    targetSummaries.push(`${recipe.name}×${target.quantity}`);
+    const targetQty = target.quantity;
+    const targetName = recipe.name;
 
-    if (expandSubRecipes) {
-      // 展开所有子配方
-      const expanded = calculateExpandedRequirements(target.recipeId, target.quantity, recipes, materials);
-      
-      for (const req of expanded) {
-        if (combinedExpanded.has(req.materialId)) {
-          const existing = combinedExpanded.get(req.materialId)!;
-          existing.quantity += req.quantity;
-          // 合并步骤（取第一条）
-        } else {
-          combinedExpanded.set(req.materialId, { 
-            ...req,
-            steps: req.steps.slice(0, -1) // 移除最后一步（目标材料本身）
-          });
-        }
-      }
-    } else {
-      // 不展开
-      const requirements = calculateRequirements(target.recipeId, target.quantity, recipes, materials);
+    // 查找该配方的产出物品的material
+    const outputMaterial = materials.find(m => m.name === recipe.name);
+    if (!outputMaterial) continue;
 
-      for (const req of requirements) {
-        if (combinedRequirements.has(req.materialId)) {
-          const existing = combinedRequirements.get(req.materialId)!;
-          existing.totalQuantity += req.totalQuantity;
-        } else {
-          combinedRequirements.set(req.materialId, { ...req });
-        }
-      }
+    // 计算需要多少次合成
+    const craftCount = ceilToInt(targetQty / recipe.outputQuantity);
+
+    // 遍历配方中的每个原材料
+    for (const ingredient of recipe.ingredients) {
+      const ingredientQtyNeeded = ingredient.quantity * craftCount;
+
+      // 递归计算
+      calculateForItem(
+        ingredient.materialId,
+        ingredientQtyNeeded,
+        recipes,
+        materials,
+        materialRequirements,
+        [targetName]
+      );
     }
   }
 
-  if (targetSummaries.length === 0) return null;
+  // 转换为结果数组
+  const results: MaterialRequirement[] = [];
+  const expandedResults: ExpandedRequirement[] = [];
 
-  let finalExpanded = combinedExpanded;
-  let traceNotes: Map<string, string> | undefined;
+  for (const [materialId, data] of materialRequirements) {
+    const material = materials.find(m => m.id === materialId);
+    const requirement: MaterialRequirement = {
+      materialId,
+      materialName: material?.name || materialId,
+      totalQuantity: data.quantity,
+      unit: material?.unit || '个',
+    };
+    results.push(requirement);
 
-  if (expandSubRecipes && combinedExpanded.size > 0) {
-    const merged = applyTraceableMerge(combinedExpanded, traceableMaterials, materials);
-    finalExpanded = merged.merged;
-    traceNotes = merged.traceNotes;
+    expandedResults.push({
+      ...requirement,
+      craftCount: data.craftCount,
+      fromTargets: Array.from(data.fromTargets),
+    });
   }
 
-  const results = expandSubRecipes
-    ? Array.from(finalExpanded.values()).map(r => ({
-        materialId: r.materialId,
-        materialName: r.materialName,
-        totalQuantity: r.quantity,
-        unit: r.unit,
-      })).sort((a, b) => a.materialName.localeCompare(b.materialName))
-    : Array.from(combinedRequirements.values()).sort((a, b) => 
-        a.materialName.localeCompare(b.materialName)
-      );
+  // 按名称排序
+  results.sort((a, b) => a.materialName.localeCompare(b.materialName));
+  expandedResults.sort((a, b) => a.materialName.localeCompare(b.materialName));
 
-  const expandedResults = expandSubRecipes 
-    ? Array.from(finalExpanded.values()).sort((a, b) => a.materialName.localeCompare(b.materialName))
-    : undefined;
+  // 保存历史记录
+  const targetSummaries = targets.map(t => {
+    const recipe = recipes.find(r => r.id === t.recipeId);
+    return `${recipe?.name || ''}×${t.quantity}`;
+  });
 
-  // 生成时间字符串
   const now = new Date();
   const timeStr = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-  // 保存历史记录: [目标1*数量]+[目标2*数量]+[时间]
   const historyRecord: CalculationHistory = {
     id: generateId(),
     timestamp: Date.now(),
-    summary: `${targetSummaries.join(']+[')}]+[${timeStr}]`,
+    summary: `${targetSummaries.join(' + ')} - ${timeStr}`,
     targets: targets.map(t => {
       const recipe = recipes.find(r => r.id === t.recipeId);
       return { recipeName: recipe?.name || '', quantity: t.quantity };
     }),
     results,
   };
-  // 只有标记为需要保存时才添加历史记录
-  if (shouldSaveHistory) {
-    addHistory(historyRecord);
+
+  addHistory(historyRecord);
+
+  return { results, expandedResults };
+}
+
+/**
+ * 计算直接配方需求（不展开子配方）
+ */
+export function calculateDirectRequirements(
+  targets: TargetConfig[]
+): MaterialRequirement[] {
+  if (targets.length === 0) return [];
+
+  const recipes = getRecipes();
+  const materials = getMaterials();
+  const requirements = new Map<string, MaterialRequirement>();
+
+  for (const target of targets) {
+    const recipe = recipes.find(r => r.id === target.recipeId);
+    if (!recipe) continue;
+
+    const multiplier = target.quantity / recipe.outputQuantity;
+
+    for (const ingredient of recipe.ingredients) {
+      const totalQty = ingredient.quantity * multiplier;
+      const material = materials.find(m => m.id === ingredient.materialId);
+
+      if (requirements.has(ingredient.materialId)) {
+        requirements.get(ingredient.materialId)!.totalQuantity += totalQty;
+      } else {
+        requirements.set(ingredient.materialId, {
+          materialId: ingredient.materialId,
+          materialName: ingredient.materialName,
+          totalQuantity: totalQty,
+          unit: material?.unit || '个',
+        });
+      }
+    }
   }
 
-  return { results, expandedResults, traceNotes };
+  return Array.from(requirements.values()).sort((a, b) => 
+    a.materialName.localeCompare(b.materialName)
+  );
 }
 
 /**
