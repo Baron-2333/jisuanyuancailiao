@@ -19,9 +19,10 @@ pkg.version = newVersion;
 // 更新 package.json
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
-// 获取当前时间
+// 获取当前北京时间 (UTC+8)
 const now = new Date();
-const buildTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+const beijingTime = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000);
+const buildTime = `${beijingTime.getFullYear()}-${String(beijingTime.getMonth() + 1).padStart(2, '0')}-${String(beijingTime.getDate()).padStart(2, '0')} ${String(beijingTime.getHours()).padStart(2, '0')}:${String(beijingTime.getMinutes()).padStart(2, '0')}`;
 
 // 更新 App.tsx 中的版本号
 let appContent = readFileSync(appPath, 'utf-8');
