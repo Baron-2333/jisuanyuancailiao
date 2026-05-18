@@ -336,11 +336,16 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
             const [showDropdown, setShowDropdown] = useState(false);
             
             // 根据输入过滤匹配的配方
+            const searchText = inputValue.toLowerCase().replace(/\s+/g, '');
             const filteredRecipes = inputValue.length > 0 
-              ? recipes.filter(r => 
-                  r.name.toLowerCase().includes(inputValue.toLowerCase()) ||
-                  (r.pinyin && r.pinyin.toLowerCase().includes(inputValue.toLowerCase()))
-                ).slice(0, 8) // 最多显示8个
+              ? recipes.filter(r => {
+                  // 移除拼音中的空格用于匹配
+                  const cleanPinyin = (r.pinyin || '').replace(/\s+/g, '').toLowerCase();
+                  // 名称包含搜索词 或 拼音首字母以前缀方式匹配
+                  return r.name.toLowerCase().includes(searchText) ||
+                    cleanPinyin.startsWith(searchText) ||
+                    cleanPinyin.includes(searchText);
+                }).slice(0, 8) // 最多显示8个
               : [];
             
             return (
