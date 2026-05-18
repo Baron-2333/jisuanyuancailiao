@@ -3,7 +3,7 @@
  */
 import { cn } from '../utils/utils';
 import { tabs, TabType } from '../config/tabs';
-import { VERSION, BUILD_TIME } from '../utils/version';
+import { VERSION } from '../utils/version';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -41,10 +41,6 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         ))}
       </nav>
 
-      {/* 底部信息 */}
-      <div className="p-4 border-t border-[#1e1e2e]">
-        <p className="text-[11px] text-slate-600">{BUILD_TIME}</p>
-      </div>
     </aside>
   );
 }
