@@ -12,6 +12,7 @@
     "deploy": "npm run build && git add -A && git commit -m \"自动构建 (v\"$(node -p \"require('./package.json').version\")\")\" && git push"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",

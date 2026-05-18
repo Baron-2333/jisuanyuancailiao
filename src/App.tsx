@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, LogOut, LogIn, Loader2, Lock } from 'lucide-react';
+import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, Download, RefreshCw, ChevronRight, LogOut, LogIn, Loader2, Lock, Settings } from 'lucide-react';
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe } from './utils/storage';
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
 import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
+import { UserSettingsView } from './UserSettingsView';
 
 // Tab类型
-type TabType = 'calculator' | 'materials' | 'recipes' | 'history';
+type TabType = 'calculator' | 'materials' | 'recipes' | 'history' | 'settings';
 
 // 单个目标材料配置
 interface TargetMaterial {
@@ -21,6 +22,7 @@ const tabs = [
   { id: 'materials' as TabType, label: '物品管理', icon: Package },
   { id: 'recipes' as TabType, label: '配方管理', icon: BookOpen },
   { id: 'history' as TabType, label: '历史记录', icon: History },
+  { id: 'settings' as TabType, label: '用户设置', icon: Settings },
 ];
 
 // 深色主题
@@ -115,6 +117,9 @@ export default function App() {
             onHistoryChange={refreshData}
             isDark={isDark}
           />
+        )}
+        {activeTab === 'settings' && (
+          <UserSettingsView isDark={isDark} />
         )}
       </main>
     </div>
