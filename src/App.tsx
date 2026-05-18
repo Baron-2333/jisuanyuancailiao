@@ -3,7 +3,7 @@ import { Calculator, Package, BookOpen, History, Plus, Trash2, Edit2, Save, X, D
 import { cn } from './utils/utils';
 import { getMaterials, getRecipes, getHistory, saveMaterials, saveRecipes, addMaterial, addRecipe, deleteMaterial, deleteRecipe, updateMaterial, updateRecipe, clearHistory, deleteHistoryItem, generateId, removeIngredientFromRecipe } from './utils/storage';
 import { performCalculation, downloadCSV, calculateDirectRequirements } from './utils/calculator';
-import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement } from './types';
+import { Material, Recipe, CalculationHistory, MaterialRequirement, ExpandedRequirement, getPinyin } from './types';
 import { UserSettingsView } from './UserSettingsView';
 import { VERSION, BUILD_TIME } from './utils/version';
 import { supabase } from './utils/supabase';
@@ -45,8 +45,21 @@ export default function App() {
 
   const loadData = async () => {
     const localMaterials = getMaterials();
-    const localRecipes = getRecipes();
+    let localRecipes = getRecipes();
     const localHistory = getHistory();
+
+    // 迁移：为已有的配方添加 pinyin 字段
+    let needSave = false;
+    localRecipes = localRecipes.map(recipe => {
+      if (!recipe.pinyin) {
+        needSave = true;
+        return { ...recipe, pinyin: getPinyin(recipe.name) };
+      }
+      return recipe;
+    });
+    if (needSave) {
+      saveRecipes(localRecipes);
+    }
 
     // 检查是否登录
     const { data: { session } } = await supabase.auth.getSession();
@@ -55,10 +68,17 @@ export default function App() {
     if (currentUserId) {
       // 登录用户：从 Supabase 同步数据（强制覆盖本地缓存）
       const userData = await getUserDataFromDB(currentUserId);
+      // 迁移：为数据库的配方添加 pinyin
+      const migratedRecipes = userData.recipes.map(recipe => {
+        if (!recipe.pinyin) {
+          return { ...recipe, pinyin: getPinyin(recipe.name) };
+        }
+        return recipe;
+      });
       setMaterials(userData.materials);
-      setRecipes(userData.recipes);
+      setRecipes(migratedRecipes);
       saveMaterials(userData.materials);
-      saveRecipes(userData.recipes);
+      saveRecipes(migratedRecipes);
       setHistory(localHistory);
       setIsReadOnly(false); // 登录用户可编辑
       return;
@@ -69,10 +89,15 @@ export default function App() {
       const adminData = await getAdminData();
       console.log('[DEBUG loadData] 从admin加载的配方数量:', adminData.recipes.length);
       if (adminData.materials.length > 0 || adminData.recipes.length > 0) {
+        // 迁移：为 admin 数据添加 pinyin
+        const migratedRecipes = adminData.recipes.map(recipe => ({
+          ...recipe,
+          pinyin: recipe.pinyin || getPinyin(recipe.name)
+        }));
         setMaterials(adminData.materials);
-        setRecipes(adminData.recipes);
+        setRecipes(migratedRecipes);
         saveMaterials(adminData.materials);
-        saveRecipes(adminData.recipes);
+        saveRecipes(migratedRecipes);
         setHistory(localHistory);
         setIsReadOnly(true); // 使用 admin 数据，设为只读
         return;
@@ -323,20 +348,34 @@ function CalculatorView({ materials, recipes, onCalculated, isDark }: {
                     <span className="font-medium text-sm">{index + 1}.</span>
                   </div>
                   <div className="flex-1">
-                    <select
-                      value={target.recipeId}
-                      onChange={e => updateTarget(target.id, 'recipeId', e.target.value)}
+                    {/* datalist 用于拼音搜索联想 */}
+                    <datalist id={`recipes-${target.id}`}>
+                      {recipes.map(recipe => (
+                        <option key={recipe.id} value={recipe.id} label={recipe.name} />
+                      ))}
+                    </datalist>
+                    <input
+                      type="text"
+                      list={`recipes-${target.id}`}
+                      placeholder="输入配方名称或拼音首字母搜索..."
+                      value={recipes.find(r => r.id === target.recipeId)?.name || ''}
+                      onChange={e => {
+                        // 查找匹配的配方
+                        const searchText = e.target.value.toLowerCase();
+                        const matched = recipes.find(r => 
+                          r.name.toLowerCase().includes(searchText) ||
+                          (r.pinyin && r.pinyin.toLowerCase().includes(searchText))
+                        );
+                        if (matched) {
+                          updateTarget(target.id, 'recipeId', matched.id);
+                        } else if (e.target.value === '') {
+                          updateTarget(target.id, 'recipeId', '');
+                        }
+                      }}
                       className={cn("w-full px-3 py-2 rounded-lg text-sm", 
                         isDark ? "bg-slate-600 text-white border-slate-500" : "bg-white border-gray-300"
                       )}
-                    >
-                      <option value="">选择配方...</option>
-                      {recipes.map(recipe => (
-                        <option key={recipe.id} value={recipe.id}>
-                          {recipe.name} → {recipe.outputQuantity}个
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div className="w-20">
                     <input
@@ -812,6 +851,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }
     if (editingId) {
       updateRecipe(editingId, {
         name: trimmedName,
+        pinyin: getPinyin(trimmedName),
         outputQuantity: formData.outputQuantity,
         ingredients: validIngredients,
       });
@@ -820,6 +860,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark, isReadOnly }
       const newRecipe: Recipe = {
         id: generateId(),
         name: trimmedName,
+        pinyin: getPinyin(trimmedName),
         outputQuantity: formData.outputQuantity,
         ingredients: validIngredients,
         createdAt: Date.now(),
