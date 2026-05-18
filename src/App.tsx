@@ -53,20 +53,18 @@ export default function App() {
     const currentUserId = session?.user?.id;
 
     if (currentUserId) {
-      // 登录用户：从 Supabase 同步数据
+      // 登录用户：从 Supabase 同步数据（强制覆盖本地缓存）
       const userData = await getUserDataFromDB(currentUserId);
-      if (userData.materials.length > 0 || userData.recipes.length > 0) {
-        setMaterials(userData.materials);
-        setRecipes(userData.recipes);
-        saveMaterials(userData.materials);
-        saveRecipes(userData.recipes);
-        setHistory(localHistory);
-        setIsReadOnly(false); // 登录用户可编辑
-        return;
-      }
+      setMaterials(userData.materials);
+      setRecipes(userData.recipes);
+      saveMaterials(userData.materials);
+      saveRecipes(userData.recipes);
+      setHistory(localHistory);
+      setIsReadOnly(false); // 登录用户可编辑
+      return;
     }
 
-    // 未登录或用户无数据：从 admin 加载
+    // 未登录用户：使用本地数据或 admin 数据
     if (localMaterials.length === 0 && localRecipes.length === 0) {
       const adminData = await getAdminData();
       if (adminData.materials.length > 0 || adminData.recipes.length > 0) {
@@ -95,18 +93,16 @@ export default function App() {
     if (currentUserId) {
       // 登录用户：从 Supabase 同步最新数据
       const userData = await getUserDataFromDB(currentUserId);
-      if (userData.materials.length > 0 || userData.recipes.length > 0) {
-        setMaterials(userData.materials);
-        setRecipes(userData.recipes);
-        saveMaterials(userData.materials);
-        saveRecipes(userData.recipes);
-        setHistory(localHistory);
-        setIsReadOnly(false);
-        return;
-      }
+      setMaterials(userData.materials);
+      setRecipes(userData.recipes);
+      saveMaterials(userData.materials);
+      saveRecipes(userData.recipes);
+      setHistory(localHistory);
+      setIsReadOnly(false);
+      return;
     }
 
-    // 未登录或无数据，使用本地数据
+    // 未登录用户，使用本地数据
     const localMaterials = getMaterials();
     const localRecipes = getRecipes();
     
