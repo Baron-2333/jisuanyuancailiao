@@ -597,13 +597,29 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
   const [formData, setFormData] = useState({
     name: '',
     outputQuantity: 1,
-    ingredients: [{ materialId: '', quantity: 1 }] as { materialId: string; quantity: number }[],
+    ingredients: [{ materialName: '', quantity: 1 }] as { materialName: string; quantity: number }[],
   });
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredRecipes = recipes.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // 快速创建物品
+  const quickCreateMaterial = (name: string, isRaw: boolean = false) => {
+    const existing = materials.find(m => m.name.toLowerCase() === name.toLowerCase());
+    if (existing) return existing;
+    
+    const newMaterial: Material = {
+      id: generateId(),
+      name: name.trim(),
+      unit: '个',
+      isRawMaterial: isRaw,
+      createdAt: Date.now(),
+    };
+    addMaterial(newMaterial);
+    return newMaterial;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -618,12 +634,21 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
       return;
     }
 
+    // 快速创建输出物品（如果不是原材料）
+    quickCreateMaterial(trimmedName, false);
+
+    // 处理原材料：输入名称自动创建
     const validIngredients = formData.ingredients
-      .filter(ing => ing.materialId && ing.quantity > 0)
-      .map(ing => ({
-        ...ing,
-        materialName: materials.find(m => m.id === ing.materialId)?.name || '',
-      }));
+      .filter(ing => ing.materialName.trim() && ing.quantity > 0)
+      .map(ing => {
+        const matName = ing.materialName.trim();
+        quickCreateMaterial(matName, false);
+        return {
+          materialId: matName, // 用名称作为ID
+          materialName: matName,
+          quantity: ing.quantity,
+        };
+      });
 
     if (validIngredients.length === 0) return;
 
@@ -654,7 +679,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
     setFormData({
       name: '',
       outputQuantity: 1,
-      ingredients: [{ materialId: '', quantity: 1 }],
+      ingredients: [{ materialName: '', quantity: 1 }],
     });
     setShowForm(false);
     setEditingId(null);
@@ -665,7 +690,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
       name: recipe.name,
       outputQuantity: recipe.outputQuantity,
       ingredients: recipe.ingredients.map(ing => ({
-        materialId: ing.materialId,
+        materialName: ing.materialName,
         quantity: ing.quantity,
       })),
     });
@@ -684,7 +709,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
     if (formData.ingredients.length < 9) {
       setFormData({
         ...formData,
-        ingredients: [...formData.ingredients, { materialId: '', quantity: 1 }],
+        ingredients: [...formData.ingredients, { materialName: '', quantity: 1 }],
       });
     }
   };
@@ -698,7 +723,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
     }
   };
 
-  const updateIngredient = (index: number, field: 'materialId' | 'quantity', value: string | number) => {
+  const updateIngredient = (index: number, field: 'materialName' | 'quantity', value: string | number) => {
     const newIngredients = [...formData.ingredients];
     newIngredients[index] = { ...newIngredients[index], [field]: value };
     setFormData({ ...formData, ingredients: newIngredients });
@@ -732,7 +757,7 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
             )}
           >
             <Plus size={18} />
-            添加
+            添加配方
           </button>
         </div>
       </div>
@@ -740,11 +765,12 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
       {showForm && (
         <div className={cn("rounded-xl p-6", cardClass)}>
           <h3 className={cn("font-semibold mb-4", isDark ? "text-white" : "text-gray-800")}>
-            {editingId ? '编辑配方' : '添加新配方'}
+            {editingId ? '编辑配方' : '添加配方（输入名称自动创建物品）'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产出物品</label>
                 <input
                   type="text"
                   required
@@ -753,10 +779,11 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
                   className={cn("w-full px-3 py-2 rounded-lg text-sm", 
                     isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
                   )}
-                  placeholder="配方名称"
+                  placeholder="输入名称"
                 />
               </div>
               <div>
+                <label className={cn("block text-xs mb-1", isDark ? "text-slate-400" : "text-gray-500")}>产出数量</label>
                 <input
                   type="number"
                   min="1"
@@ -766,26 +793,25 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
                   className={cn("w-full px-3 py-2 rounded-lg text-sm", 
                     isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
                   )}
-                  placeholder="产出数量"
+                  placeholder="数量"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
+              <label className={cn("block text-xs", isDark ? "text-slate-400" : "text-gray-500")}>原材料（输入名称）</label>
               {formData.ingredients.map((ing, index) => (
                 <div key={index} className="flex gap-2 items-center">
-                  <select
-                    value={ing.materialId}
-                    onChange={e => updateIngredient(index, 'materialId', e.target.value)}
+                  <input
+                    type="text"
+                    value={ing.materialName}
+                    onChange={e => updateIngredient(index, 'materialName', e.target.value)}
                     className={cn("flex-1 px-3 py-2 rounded-lg text-sm", 
                       isDark ? "bg-slate-700 text-white border-slate-600" : "border border-gray-300"
                     )}
-                  >
-                    <option value="">选择材料...</option>
-                    {materials.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
+                    placeholder="输入材料名称"
+                    list="existing-materials"
+                  />
                   <span className={isDark ? "text-slate-400" : "text-gray-400"}>×</span>
                   <input
                     type="number"
@@ -837,6 +863,9 @@ function RecipesView({ materials, recipes, onRecipesChange, isDark }: {
             <BookOpen className={cn("mx-auto", isDark ? "text-slate-600" : "text-gray-300")} size={48} />
             <p className={cn("mt-4 text-lg", isDark ? "text-slate-400" : "text-gray-500")}>
               {searchTerm ? '没有找到' : '暂无配方'}
+            </p>
+            <p className={cn("mt-2 text-sm", isDark ? "text-slate-500" : "text-gray-400")}>
+              点击「添加配方」开始创建
             </p>
           </div>
         ) : (
