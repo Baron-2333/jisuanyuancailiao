@@ -23,13 +23,13 @@ function setStorageData<T>(key: string, data: T): void {
 }
 
 // 同步数据到 Supabase（登录用户）
-async function syncToSupabase(key: 'MATERIALS' | 'RECIPES', data: Material[] | Recipe[]): Promise<void> {
+async function syncToSupabase(key: 'MATERIALS' | 'RECIPES' | 'PROCESSES', data: Material[] | Recipe[] | Process[]): Promise<void> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     if (!userId) return;
 
-    const settingKey = key === 'MATERIALS' ? 'materials' : 'recipes';
+    const settingKey = key === 'MATERIALS' ? 'materials' : key === 'RECIPES' ? 'recipes' : 'processes';
     
     // 先尝试 UPDATE
     const { error: updateError } = await supabase
@@ -180,6 +180,8 @@ export function getProcesses(): Process[] {
 
 export function saveProcesses(processes: Process[]): void {
   setStorageData(STORAGE_KEYS.PROCESSES, processes);
+  // 同步到 Supabase
+  syncToSupabase('PROCESSES', processes);
 }
 
 export function addProcess(process: Process): void {
